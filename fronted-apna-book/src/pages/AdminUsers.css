@@ -1,0 +1,83 @@
+.admin-shell {
+  min-height: 100vh;
+}
+
+.admin-users-page {
+  background: radial-gradient(circle at top left, var(--paper), rgba(246, 243, 238, 1));
+}
+
+.admin-sidebar {
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.06);
+}
+
+.admin-users-page .admin-sidebar {
+  background: linear-gradient(180deg, #14110f 0%, #1b1512 100%);
+}
+
+.admin-content {
+  position: relative;
+}
+
+.admin-users-page .admin-content > div > header {
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.admin-card {
+  border: 1px solid rgba(29, 27, 25, 0.04);
+}
+
+.admin-users-page .admin-card {
+  border-color: rgba(148, 163, 184, 0.2);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  border-radius: 20px;
+  box-shadow: var(--shadow-md);
+}
+
+.admin-users-page .admin-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 22px 40px rgba(0, 0, 0, 0.1);
+}
+
+.admin-table tbody tr:hover {
+  background: rgba(180, 81, 45, 0.04);
+}
+
+.admin-modal {
+  backdrop-filter: blur(6px);
+}
+
+.admin-users-page .admin-card {
+  background: var(--card);
+}
+
+.admin-users-page .admin-table thead {
+  background: var(--paper);
+}
+
+.admin-users-page .admin-table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.admin-users-page .admin-table tbody tr {
+  transition: background 0.2s ease;
+}
+
+.admin-users-page .admin-table tbody tr:hover {
+  background: #f1f5f9;
+}
+
+@media (max-width: 900px) {
+  .admin-sidebar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+  }
+}
+
+@media (max-width: 600px) {
+  .admin-content {
+    padding: 24px 16px;
+  }
+}

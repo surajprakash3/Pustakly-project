@@ -1,0 +1,100 @@
+.user-portal {
+  background: radial-gradient(circle at top left, var(--paper), var(--bg) 55%, #efe7e1 100%);
+  color: var(--dark);
+}
+
+.user-portal-header {
+  border-bottom: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+
+.user-portal-main {
+  animation: portal-fade 0.45s ease both;
+}
+
+.user-portal-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.user-portal-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.user-portal-row {
+  background: var(--paper);
+  transition: background 0.2s ease;
+}
+
+.user-portal-row:hover {
+  background: #f3ebe4;
+}
+
+.user-portal-tile {
+  background: var(--card);
+  border: 1px solid var(--border);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.user-portal-tile:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.user-portal-input {
+  background: var(--paper);
+}
+
+.user-portal-avatar {
+  box-shadow: var(--shadow-md);
+}
+
+.user-portal-field {
+  background: var(--paper);
+}
+
+.user-portal-link {
+  position: relative;
+}
+
+.user-portal-link::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -4px;
+  width: 100%;
+  height: 2px;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.2s ease;
+}
+
+.user-portal-link:hover::after {
+  transform: scaleX(1);
+}
+
+@keyframes portal-fade {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .user-portal-main {
+    animation: none;
+  }
+
+  .user-portal-card,
+  .user-portal-tile {
+    transition: none;
+  }
+}

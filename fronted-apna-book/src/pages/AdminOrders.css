@@ -1,0 +1,77 @@
+.admin-shell {
+  min-height: 100vh;
+}
+
+.admin-orders-page {
+  background: radial-gradient(circle at top left, var(--paper), rgba(246, 243, 238, 1));
+}
+
+.admin-sidebar {
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.06);
+}
+
+.admin-orders-page .admin-sidebar {
+  background: linear-gradient(180deg, #14110f 0%, #1b1512 100%);
+}
+
+.admin-content {
+  position: relative;
+}
+
+.admin-orders-page .admin-content > div > header {
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(29, 27, 25, 0.08);
+}
+
+.admin-card {
+  border: 1px solid rgba(29, 27, 25, 0.04);
+}
+
+.admin-orders-page .admin-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.admin-orders-page .admin-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 22px 40px rgba(0, 0, 0, 0.1);
+}
+
+.admin-table tbody tr:hover {
+  background: rgba(180, 81, 45, 0.04);
+}
+
+.admin-modal {
+  backdrop-filter: blur(6px);
+}
+
+.admin-orders-page .admin-card {
+  background: var(--card);
+  border-radius: 20px;
+  box-shadow: var(--shadow-md);
+}
+
+.admin-orders-page .admin-card:hover {
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.08);
+}
+
+.admin-orders-page .order-pill {
+  letter-spacing: 0.08em;
+}
+
+.admin-orders-page .status-badge {
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+}
+
+@media (max-width: 900px) {
+  .admin-sidebar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+  }
+}
+
+@media (max-width: 600px) {
+  .admin-content {
+    padding: 24px 16px;
+  }
+}
