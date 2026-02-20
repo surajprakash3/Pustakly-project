@@ -1,4 +1,4 @@
-import { useContext, useMemo, useState } from 'react';
+import { useContext, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar.jsx';
 import Footer from '../components/Footer.jsx';
@@ -11,26 +11,30 @@ const categoryTabs = ['All', 'Book', 'Notes', 'Template', 'Data', 'Project'];
 const formatPrice = (value) => `$${Number(value || 0).toFixed(2)}`;
 
 export default function Marketplace() {
-  const { listings } = useMarketplace();
+  const { listings, loading, error, fetchListings } = useMarketplace();
   const { addItem } = useContext(CartContext);
   const [activeCategory, setActiveCategory] = useState('All');
   const [activeType, setActiveType] = useState('All');
   const [maxPrice, setMaxPrice] = useState(50);
   const [query, setQuery] = useState('');
 
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      fetchListings({
+        q: query.trim() || undefined,
+        category: activeCategory,
+        type: activeType,
+        maxPrice,
+        status: 'Active'
+      });
+    }, 250);
+
+    return () => clearTimeout(timeout);
+  }, [query, activeCategory, activeType, maxPrice, fetchListings]);
+
   const filteredListings = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
-    return listings.filter((item) => {
-      const matchesCategory = activeCategory === 'All' || item.category === activeCategory;
-      const matchesType = activeType === 'All' || item.type === activeType;
-      const matchesPrice = Number(item.price || 0) <= maxPrice;
-      const matchesQuery =
-        !normalizedQuery ||
-        item.title.toLowerCase().includes(normalizedQuery) ||
-        item.creator.toLowerCase().includes(normalizedQuery);
-      return matchesCategory && matchesType && matchesPrice && matchesQuery;
-    });
-  }, [listings, activeCategory, activeType, maxPrice, query]);
+    return listings;
+  }, [listings]);
 
   return (
     <div className="page">
@@ -92,7 +96,15 @@ export default function Marketplace() {
           </div>
         </div>
 
-        {filteredListings.length === 0 ? (
+        {loading ? (
+          <div className="rounded-2xl border border-dashed border-[#e0ddd8] bg-white p-8 text-center text-sm text-[#7a726b]">
+            Loading listings...
+          </div>
+        ) : error ? (
+          <div className="rounded-2xl border border-[#f3c7bf] bg-[#fff3f0] p-8 text-center text-sm font-semibold text-[#a53f30]">
+            {error}
+          </div>
+        ) : filteredListings.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-[#e0ddd8] bg-white p-8 text-center text-sm text-[#7a726b]">
             No listings match your filters yet. Try adjusting the category or price.
           </div>
@@ -126,7 +138,7 @@ export default function Marketplace() {
                     Add to Cart
                   </button>
                   <Link
-                    to={`/marketplace/${item.id}`}
+                    to={`/marketplace/${String(item.id)}`}
                     className="rounded-full border border-[#d9cfc6] px-4 py-2 text-xs font-semibold"
                   >
                     View Details

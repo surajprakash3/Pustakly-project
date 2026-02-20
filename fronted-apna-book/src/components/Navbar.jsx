@@ -1,5 +1,5 @@
 import { useContext, useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import './Navbar.css';
 import { CartContext } from '../context/CartContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -12,6 +12,8 @@ export default function Navbar() {
   const { items } = useContext(CartContext);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const profileLabel = user?.name || user?.email?.split('@')[0] || 'My Profile';
   const cartCount = items.reduce(
     (total, item) => total + (item.quantity ?? 1),
     0
@@ -22,6 +24,15 @@ export default function Navbar() {
     setTheme(savedTheme);
     document.documentElement.setAttribute('data-theme', savedTheme);
   }, []);
+
+  useEffect(() => {
+    if (!location.hash) return;
+    const id = location.hash.slice(1);
+    const target = document.getElementById(id);
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [location.pathname, location.hash]);
 
   const toggleTheme = () => {
     const nextTheme = theme === 'dark' ? 'light' : 'dark';
@@ -48,10 +59,10 @@ export default function Navbar() {
         </Link>
         
         <nav className="nav-links">
-          <a href="/#banner" className="nav-link">Highlights</a>
-          <a href="/#trending" className="nav-link">Trending</a>
-          <a href="/#offers" className="nav-link">Offers</a>
-          <a href="/#categories" className="nav-link">Categories</a>
+          <Link to="/#banner" className="nav-link">Highlights</Link>
+          <Link to="/#trending" className="nav-link">Trending</Link>
+          <Link to="/#offers" className="nav-link">Offers</Link>
+          <Link to="/#categories" className="nav-link">Categories</Link>
           <Link to="/marketplace" className="nav-link">Marketplace</Link>
           <Link to="/books" className="nav-link">Browse</Link>
         </nav>
@@ -76,7 +87,7 @@ export default function Navbar() {
                   aria-expanded={profileOpen}
                 >
                   <span className="btn-icon">👤</span>
-                  My Profile
+                  {profileLabel}
                 </button>
                 {profileOpen && (
                   <div className="profile-dropdown">
@@ -120,10 +131,10 @@ export default function Navbar() {
 
       {open && (
         <div className="mobile-menu">
-          <a href="/#banner" onClick={() => setOpen(false)}>Highlights</a>
-          <a href="/#trending" onClick={() => setOpen(false)}>Trending</a>
-          <a href="/#offers" onClick={() => setOpen(false)}>Offers</a>
-          <a href="/#categories" onClick={() => setOpen(false)}>Categories</a>
+          <Link to="/#banner" onClick={() => setOpen(false)}>Highlights</Link>
+          <Link to="/#trending" onClick={() => setOpen(false)}>Trending</Link>
+          <Link to="/#offers" onClick={() => setOpen(false)}>Offers</Link>
+          <Link to="/#categories" onClick={() => setOpen(false)}>Categories</Link>
           <Link to="/marketplace" onClick={() => setOpen(false)}>Marketplace</Link>
           <Link to="/books" onClick={() => setOpen(false)}>Browse</Link>
           <div className="mobile-menu-divider"></div>

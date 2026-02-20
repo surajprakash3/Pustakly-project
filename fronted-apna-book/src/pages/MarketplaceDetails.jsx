@@ -13,7 +13,7 @@ export default function MarketplaceDetails() {
   const { listings } = useMarketplace();
   const { addItem } = useContext(CartContext);
 
-  const listing = listings.find((item) => item.id === Number(id));
+  const listing = listings.find((item) => String(item.id) === String(id));
 
   if (!listing) {
     return (
@@ -80,7 +80,7 @@ export default function MarketplaceDetails() {
                 </div>
                 <div className="rounded-xl border border-[#efe5dc] px-4 py-3">
                   <p className="text-xs uppercase tracking-[0.2em] text-[#a88874]">Seller</p>
-                  <p className="text-sm font-semibold">{listing.seller}</p>
+                  <p className="text-sm font-semibold">{listing.sellerName || listing.seller || 'Unknown seller'}</p>
                 </div>
                 <div className="rounded-xl border border-[#efe5dc] px-4 py-3">
                   <p className="text-xs uppercase tracking-[0.2em] text-[#a88874]">Status</p>

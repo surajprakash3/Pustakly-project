@@ -14,6 +14,7 @@ const emptyForm = {
   description: '',
   previewEnabled: true,
   fileName: '',
+  fileUrl: '',
   fileType: '',
   previewUrl: ''
 };
@@ -23,6 +24,7 @@ export default function UserSell() {
   const { addListing } = useMarketplace();
   const [form, setForm] = useState(emptyForm);
   const [status, setStatus] = useState('Ready to upload');
+  const [submitting, setSubmitting] = useState(false);
 
   const handleChange = (event) => {
     const { name, value, type, checked } = event.target;
@@ -47,14 +49,15 @@ export default function UserSell() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    setSubmitting(true);
     const listing = {
-      id: Date.now(),
       title: form.title.trim(),
       creator: form.creator.trim(),
       description: form.description.trim(),
       price: Number(form.price || 0),
       category: form.category,
       type: form.type,
+      fileUrl: form.fileUrl.trim() || `local://${form.fileName || 'uploaded-file'}`,
       fileType: form.fileType || 'file',
       previewUrl: form.previewUrl,
       previewEnabled: form.previewEnabled,
@@ -68,7 +71,9 @@ export default function UserSell() {
       setForm(emptyForm);
       setStatus('Listing published to marketplace');
     } catch (error) {
-      setStatus('Upload failed. Please try again.');
+      setStatus(error.message || 'Upload failed. Please try again.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -148,6 +153,13 @@ export default function UserSell() {
               className="user-portal-input w-full rounded-xl border border-[#e8dcd3] px-3 py-2 text-sm"
             />
           </div>
+          <input
+            name="fileUrl"
+            value={form.fileUrl}
+            onChange={handleChange}
+            placeholder="File URL (https://... or local file reference)"
+            className="user-portal-input w-full rounded-xl border border-[#e8dcd3] px-3 py-2 text-sm"
+          />
           <textarea
             name="description"
             value={form.description}
@@ -176,8 +188,12 @@ export default function UserSell() {
             />
             Enable preview card for buyers
           </label>
-          <button className="rounded-full bg-[#1d1b19] px-5 py-2 text-sm font-semibold text-white" type="submit">
-            Upload Listing
+          <button
+            className="rounded-full bg-[#1d1b19] px-5 py-2 text-sm font-semibold text-white disabled:opacity-60"
+            type="submit"
+            disabled={submitting}
+          >
+            {submitting ? 'Uploading...' : 'Upload Listing'}
           </button>
         </form>
       </section>

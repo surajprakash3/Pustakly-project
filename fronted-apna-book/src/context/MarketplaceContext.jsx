@@ -1,23 +1,27 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import marketplaceSeed from '../data/marketplaceSeed.js';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import api from '../lib/api.js';
 import { useAuth } from './AuthContext.jsx';
 
 const MarketplaceContext = createContext({
   listings: [],
+  loading: false,
+  error: '',
+  refreshListings: () => {},
+  fetchListings: () => {},
   addListing: () => {},
   updateListing: () => {},
   removeListing: () => {}
 });
 
-const STORAGE_KEY = 'apnabook_marketplace';
-
 const normalizeListing = (listing) => {
   const sellerEmail = listing?.seller?.email || listing?.sellerEmail || listing?.seller || 'unknown';
   return {
-    id: listing._id || listing.id,
+    id: String(listing._id || listing.id),
     status: listing.status ?? 'Active',
     approvalStatus: listing.approvalStatus ?? 'Approved',
+    totalSales: Number(listing.totalSales || 0),
+    rating: Number(listing.rating || 0),
+    ratingCount: Number(listing.ratingCount || 0),
     price: Number(listing.price || 0),
     seller: sellerEmail,
     sellerName: listing?.seller?.name || listing?.sellerName || undefined,
@@ -25,52 +29,74 @@ const normalizeListing = (listing) => {
   };
 };
 
-const loadListings = () => {
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) return marketplaceSeed;
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.map(normalizeListing) : marketplaceSeed;
-  } catch {
-    return marketplaceSeed;
-  }
+const emitMarketplaceUpdated = () => {
+  window.dispatchEvent(new CustomEvent('marketplace:updated'));
 };
 
 export function MarketplaceProvider({ children }) {
   const [listings, setListings] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const { token, user } = useAuth();
+
+  const buildQueryString = useCallback((filters = {}) => {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '' && value !== 'All') {
+        params.set(key, String(value));
+      }
+    });
+    return params.toString();
+  }, []);
+
+  const fetchListings = useCallback(async (filters = {}) => {
+    setLoading(true);
+    setError('');
+    try {
+      const query = buildQueryString(filters);
+      const path = query ? `/api/products?${query}` : '/api/products';
+      const data = await api.get(path);
+      const rows = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : [];
+      const normalized = rows.map(normalizeListing);
+      setListings(normalized);
+      return normalized;
+    } catch (requestError) {
+      setError(requestError.message || 'Failed to load marketplace listings');
+      setListings([]);
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  }, [buildQueryString]);
+
+  const refreshListings = useCallback((filters = {}) => fetchListings(filters), [fetchListings]);
 
   useEffect(() => {
     let ignore = false;
 
     const loadFromApi = async () => {
-      try {
-        const data = await api.get('/api/products');
-        if (!ignore) {
-          setListings(data.map(normalizeListing));
-        }
-      } catch (error) {
-        if (!ignore) {
-          setListings(loadListings().map(normalizeListing));
-        }
-      }
+      const data = await fetchListings();
+      if (ignore) return;
+      setListings(data);
     };
 
     loadFromApi();
 
+    const pollId = setInterval(() => {
+      if (!ignore) {
+        fetchListings();
+      }
+    }, 15000);
+
     return () => {
       ignore = true;
+      clearInterval(pollId);
     };
-  }, [token]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(listings));
-  }, [listings]);
+  }, [token, fetchListings]);
 
   const addListing = async (listing) => {
     if (!token) {
-      setListings((prev) => [normalizeListing(listing), ...prev]);
-      return;
+      throw new Error('Please sign in to upload a listing');
     }
 
     const payload = {
@@ -80,6 +106,7 @@ export function MarketplaceProvider({ children }) {
       price: Number(listing.price || 0),
       category: listing.category,
       type: listing.type,
+      fileUrl: listing.fileUrl,
       fileType: listing.fileType,
       previewUrl: listing.previewUrl,
       previewEnabled: listing.previewEnabled,
@@ -87,12 +114,10 @@ export function MarketplaceProvider({ children }) {
       approvalStatus: listing.approvalStatus ?? 'Approved'
     };
 
-    try {
-      const created = await api.post('/api/products', payload, { token });
-      setListings((prev) => [normalizeListing(created), ...prev]);
-    } catch (error) {
-      setListings((prev) => [normalizeListing(listing), ...prev]);
-    }
+    const created = await api.post('/api/products', payload, { token });
+    setListings((prev) => [normalizeListing(created), ...prev]);
+    emitMarketplaceUpdated();
+    return created;
   };
 
   const updateListing = async (id, updates) => {
@@ -120,10 +145,11 @@ export function MarketplaceProvider({ children }) {
       }
 
       setListings((prev) =>
-        prev.map((item) => (item.id === id ? normalizeListing({ ...item, ...updated }) : item))
+        prev.map((item) => (item.id === String(id) ? normalizeListing({ ...item, ...updated }) : item))
       );
+      emitMarketplaceUpdated();
     } catch (error) {
-      setListings((prev) => prev.map((item) => (item.id === id ? { ...item, ...updates } : item)));
+      setListings((prev) => prev.map((item) => (item.id === String(id) ? { ...item, ...updates } : item)));
     }
   };
 
@@ -135,12 +161,22 @@ export function MarketplaceProvider({ children }) {
         return;
       }
     }
-    setListings((prev) => prev.filter((item) => item.id !== id));
+    setListings((prev) => prev.filter((item) => item.id !== String(id)));
+    emitMarketplaceUpdated();
   };
 
   const value = useMemo(
-    () => ({ listings, addListing, updateListing, removeListing }),
-    [listings]
+    () => ({
+      listings,
+      loading,
+      error,
+      refreshListings,
+      fetchListings,
+      addListing,
+      updateListing,
+      removeListing
+    }),
+    [listings, loading, error]
   );
 
   return <MarketplaceContext.Provider value={value}>{children}</MarketplaceContext.Provider>;

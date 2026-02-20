@@ -1,23 +1,50 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useMarketplace } from '../context/MarketplaceContext.jsx';
+import api from '../lib/api.js';
 
 const formatPrice = (value) => `$${Number(value || 0).toFixed(2)}`;
 
 export default function SellerDashboard() {
-  const { user } = useAuth();
-  const { listings, removeListing, updateListing } = useMarketplace();
+  const { token } = useAuth();
+  const { removeListing, updateListing } = useMarketplace();
+  const [myListings, setMyListings] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [draft, setDraft] = useState({ title: '', price: '' });
 
-  const sellerId = user?.email || 'guest@pustakly.com';
-  const myListings = useMemo(
-    () => listings.filter((item) => item.seller === sellerId),
-    [listings, sellerId]
-  );
+  useEffect(() => {
+    let active = true;
+
+    const loadMyUploads = async () => {
+      if (!token) return;
+      setLoading(true);
+      setError('');
+      try {
+        const data = await api.get('/api/products/mine', { token });
+        if (active) {
+          setMyListings(Array.isArray(data) ? data.map((item) => ({ ...item, id: String(item._id || item.id) })) : []);
+        }
+      } catch (requestError) {
+        if (active) {
+          setError(requestError.message || 'Failed to load uploads');
+          setMyListings([]);
+        }
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    loadMyUploads();
+    return () => {
+      active = false;
+    };
+  }, [token]);
 
   const updateStatus = (id, status) => {
     updateListing(id, { status });
+    setMyListings((prev) => prev.map((item) => (item.id === id ? { ...item, status } : item)));
   };
 
   const startEdit = (item) => {
@@ -31,7 +58,12 @@ export default function SellerDashboard() {
   };
 
   const saveEdit = (id) => {
-    updateListing(id, { title: draft.title.trim(), price: Number(draft.price || 0) });
+    const updatedTitle = draft.title.trim();
+    const updatedPrice = Number(draft.price || 0);
+    updateListing(id, { title: updatedTitle, price: updatedPrice });
+    setMyListings((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, title: updatedTitle, price: updatedPrice } : item))
+    );
     cancelEdit();
   };
 
@@ -48,7 +80,15 @@ export default function SellerDashboard() {
       </div>
 
       <div className="mt-5 space-y-3">
-        {myListings.length === 0 ? (
+        {loading ? (
+          <div className="rounded-xl border border-dashed border-[#e0ddd8] px-4 py-6 text-center text-sm text-[#7a726b]">
+            Loading your uploads...
+          </div>
+        ) : error ? (
+          <div className="rounded-xl border border-[#f3c7bf] bg-[#fff3f0] px-4 py-6 text-center text-sm font-semibold text-[#a53f30]">
+            {error}
+          </div>
+        ) : myListings.length === 0 ? (
           <div className="rounded-xl border border-dashed border-[#e0ddd8] px-4 py-6 text-center text-sm text-[#7a726b]">
             No uploads yet. Add your first listing in the Sell tab.
           </div>
@@ -120,7 +160,10 @@ export default function SellerDashboard() {
                     <button
                       type="button"
                       className="rounded-full border border-[#f4b4ad] px-3 py-1 text-xs font-semibold text-[#b91c1c]"
-                      onClick={() => removeListing(item.id)}
+                      onClick={() => {
+                        removeListing(item.id);
+                        setMyListings((prev) => prev.filter((entry) => entry.id !== item.id));
+                      }}
                     >
                       Delete
                     </button>

@@ -16,6 +16,17 @@ const connectDB = async () => {
   client = new MongoClient(uri);
   await client.connect();
   database = client.db(process.env.MONGO_DB_NAME || 'apnabook');
+
+  await database.collection('products').createIndexes([
+    { key: { category: 1 } },
+    { key: { price: 1 } },
+    { key: { rating: -1 } },
+    { key: { totalSales: -1 } },
+    { key: { createdAt: -1 } },
+    { key: { seller: 1, createdAt: -1 } },
+    { key: { title: 'text', creator: 'text' } }
+  ]);
+
   console.log('MongoDB connected');
   return { client, db: database };
 };

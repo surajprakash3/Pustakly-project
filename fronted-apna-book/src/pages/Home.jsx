@@ -2,17 +2,67 @@ import './Home.css';
 import Navbar from '../components/Navbar.jsx';
 import Hero from '../components/Hero.jsx';
 import CategorySection from '../components/CategorySection.jsx';
-import BookCard from '../components/BookCard.jsx';
 import Footer from '../components/Footer.jsx';
-import books from '../data/books.js';
-import { useContext } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CartContext } from '../context/CartContext.jsx';
 import { useMarketplace } from '../context/MarketplaceContext.jsx';
+import api from '../lib/api.js';
+
+const formatPrice = (value) => `$${Number(value || 0).toFixed(2)}`;
+
+const RatingStars = ({ rating = 0 }) => {
+  const safe = Math.max(0, Math.min(5, Number(rating || 0)));
+  return (
+    <div className="flex items-center gap-1 text-sm">
+      {Array.from({ length: 5 }).map((_, index) => (
+        <span key={index} className={index < Math.round(safe) ? 'text-[#f59e0b]' : 'text-[#d6d3d1]'}>
+          ★
+        </span>
+      ))}
+      <span className="ml-1 text-xs text-[#7a726b]">{safe.toFixed(1)}</span>
+    </div>
+  );
+};
 
 export default function Home() {
   const { addItem } = useContext(CartContext);
   const { listings } = useMarketplace();
+  const [trending, setTrending] = useState([]);
+  const [trendingLoading, setTrendingLoading] = useState(true);
+  const [trendingError, setTrendingError] = useState('');
+
+  useEffect(() => {
+    let active = true;
+
+    const loadTrending = async () => {
+      setTrendingLoading(true);
+      setTrendingError('');
+      try {
+        const data = await api.get('/api/products/trending?limit=8');
+        if (active) {
+          setTrending(Array.isArray(data) ? data : []);
+        }
+      } catch (error) {
+        if (active) {
+          setTrendingError(error.message || 'Failed to load trending products');
+          setTrending([]);
+        }
+      } finally {
+        if (active) setTrendingLoading(false);
+      }
+    };
+
+    loadTrending();
+
+    const timer = setInterval(loadTrending, 15000);
+    window.addEventListener('marketplace:updated', loadTrending);
+    return () => {
+      active = false;
+      clearInterval(timer);
+      window.removeEventListener('marketplace:updated', loadTrending);
+    };
+  }, []);
 
   return (
     <div className="page">
@@ -79,21 +129,54 @@ export default function Home() {
             <h2>Trending This Week</h2>
             <p>Bestsellers flying off our shelves - grab yours before they're gone!</p>
           </div>
-          <div className="trending-grid">
-            {books.map((book, index) => (
-              <div key={book.id} className="book-wrapper" style={{ animationDelay: `${index * 0.1}s` }}>
-                <BookCard
-                  image={book.image}
-                  title={book.title}
-                  author={book.author}
-                  price={book.price}
-                  rating={book.rating}
-                  tag={book.tag}
-                  onAddToCart={() => addItem({ ...book, quantity: 1 })}
-                />
-              </div>
-            ))}
-          </div>
+          {trendingLoading ? (
+            <div className="rounded-2xl border border-dashed border-[#e0ddd8] bg-white p-8 text-center text-sm text-[#7a726b]">
+              Loading trending products...
+            </div>
+          ) : trendingError ? (
+            <div className="rounded-2xl border border-[#f3c7bf] bg-[#fff3f0] p-8 text-center text-sm font-semibold text-[#a53f30]">
+              {trendingError}
+            </div>
+          ) : (
+            <div className="trending-grid">
+              {trending.map((item, index) => (
+                <article key={String(item._id || item.id)} className="book-wrapper rounded-2xl border border-[#efe5dc] bg-white p-4" style={{ animationDelay: `${index * 0.1}s` }}>
+                  <span className="rounded-full bg-[#f5eee7] px-3 py-1 text-xs font-semibold text-[#a05c3b]">
+                    {item.category || 'General'}
+                  </span>
+                  <div className="mt-3 rounded-xl bg-[#f3ece6] p-3">
+                    {item.previewUrl ? (
+                      <img src={item.previewUrl} alt={item.title} className="h-40 w-full rounded-xl object-cover" />
+                    ) : (
+                      <div className="flex h-40 items-center justify-center text-4xl">📦</div>
+                    )}
+                  </div>
+                  <h3 className="mt-3 text-lg font-semibold">{item.title}</h3>
+                  <p className="text-sm text-[#7a726b]">by {item.creator}</p>
+                  <div className="mt-2">
+                    <RatingStars rating={item.rating} />
+                  </div>
+                  <div className="mt-3 flex items-center justify-between">
+                    <span className="text-lg font-semibold">{formatPrice(item.price)}</span>
+                    <button
+                      type="button"
+                      className="rounded-full bg-[#1d1b19] px-4 py-2 text-xs font-semibold text-white"
+                      onClick={() =>
+                        addItem({
+                          ...item,
+                          id: String(item._id || item.id),
+                          price: formatPrice(item.price),
+                          quantity: 1
+                        })
+                      }
+                    >
+                      Add to Cart
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
           <div className="view-all-container">
             <button className="ghost-btn view-all-btn" type="button">
               View All Books <span className="arrow">→</span>

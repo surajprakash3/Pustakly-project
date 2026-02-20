@@ -2,6 +2,7 @@ const express = require('express');
 const {
   createProduct,
   listProducts,
+  listTrendingProducts,
   getProduct,
   updateProduct,
   updateApproval,
@@ -14,6 +15,7 @@ const requireRole = require('../middleware/requireRole');
 const router = express.Router();
 
 router.get('/', listProducts);
+router.get('/trending', listTrendingProducts);
 router.get('/mine', requireAuth, myUploads);
 router.get('/:id', getProduct);
 router.post('/', requireAuth, createProduct);

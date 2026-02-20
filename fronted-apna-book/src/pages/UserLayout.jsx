@@ -13,6 +13,7 @@ const tabs = [
 export default function UserLayout() {
   const { logout, user } = useAuth();
   const navigate = useNavigate();
+  const displayName = user?.name || user?.email?.split('@')[0] || 'Reader';
 
   const handleLogout = () => {
     logout();
@@ -25,7 +26,7 @@ export default function UserLayout() {
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-6 py-4">
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-[#a88874]">User Portal</p>
-            <h1 className="text-2xl font-semibold">Welcome, {user?.email?.split('@')[0] || 'Reader'}</h1>
+            <h1 className="text-2xl font-semibold">Welcome, {displayName}</h1>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <Link

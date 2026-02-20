@@ -1,75 +1,149 @@
-import { useContext, useState } from 'react';
+import { useContext, useEffect, useMemo, useState } from 'react';
 import Navbar from '../components/Navbar.jsx';
 import BookCard from '../components/BookCard.jsx';
 import Footer from '../components/Footer.jsx';
-import books from '../data/books.js';
 import { CartContext } from '../context/CartContext.jsx';
+import api from '../lib/api.js';
 import './BookList.css';
 
+const SORT_OPTIONS = [
+  { label: 'Featured', value: 'featured' },
+  { label: 'Newest', value: 'newest' },
+  { label: 'Price: Low to High', value: 'price_asc' },
+  { label: 'Price: High to Low', value: 'price_desc' },
+  { label: 'Most Popular', value: 'popular' }
+];
+
 export default function BookList() {
-  const [selectedCategory, setSelectedCategory] = useState('All');
-  const [priceRange, setPriceRange] = useState([0, 50]);
-  const [minRating, setMinRating] = useState(0);
-  const [sortBy, setSortBy] = useState('featured');
-  const [showFilters, setShowFilters] = useState(false);
   const { addItem } = useContext(CartContext);
 
-  // Extract unique categories from books
-  const categories = ['All', ...new Set(books.map((book) => book.tag))];
-
-  // Filter books based on selected filters
-  const filteredBooks = books.filter((book) => {
-    const price = parseFloat(book.price.replace('$', ''));
-    const matchesCategory = selectedCategory === 'All' || book.tag === selectedCategory;
-    const matchesPrice = price >= priceRange[0] && price <= priceRange[1];
-    const matchesRating = book.rating >= minRating;
-    return matchesCategory && matchesPrice && matchesRating;
+  const [products, setProducts] = useState([]);
+  const [meta, setMeta] = useState({
+    page: 1,
+    limit: 12,
+    total: 0,
+    totalPages: 1,
+    categoryCounts: [],
+    priceRange: { min: 0, max: 100 }
   });
 
-  // Sort books
-  const sortedBooks = [...filteredBooks].sort((a, b) => {
-    switch (sortBy) {
-      case 'price-low':
-        return parseFloat(a.price.replace('$', '')) - parseFloat(b.price.replace('$', ''));
-      case 'price-high':
-        return parseFloat(b.price.replace('$', '')) - parseFloat(a.price.replace('$', ''));
-      case 'rating':
-        return b.rating - a.rating;
-      case 'name':
-        return a.title.localeCompare(b.title);
-      default:
-        return 0;
-    }
-  });
+  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [priceRange, setPriceRange] = useState({ min: 0, max: 100 });
+  const [minRating, setMinRating] = useState(0);
+  const [sortBy, setSortBy] = useState('featured');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+  const [priceInitialized, setPriceInitialized] = useState(false);
+
+  const categories = useMemo(
+    () => [
+      { name: 'All', count: meta.total },
+      ...meta.categoryCounts.map((entry) => ({ name: entry.category, count: entry.count }))
+    ],
+    [meta.total, meta.categoryCounts]
+  );
+
+  const queryString = useMemo(() => {
+    const params = new URLSearchParams({
+      withMeta: 'true',
+      status: 'Active',
+      approvalStatus: 'Approved',
+      sort: sortBy,
+      page: String(page),
+      limit: '12'
+    });
+
+    if (selectedCategory !== 'All') params.set('category', selectedCategory);
+    if (searchQuery.trim()) params.set('q', searchQuery.trim());
+    if (minRating > 0) params.set('rating', String(minRating));
+    params.set('minPrice', String(priceRange.min));
+    params.set('maxPrice', String(priceRange.max));
+
+    return params.toString();
+  }, [selectedCategory, searchQuery, minRating, sortBy, page, priceRange.min, priceRange.max]);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadProducts = async () => {
+      setLoading(true);
+      setError('');
+
+      try {
+        const data = await api.get(`/api/products?${queryString}`);
+        if (!active) return;
+
+        const incomingItems = Array.isArray(data?.items) ? data.items : [];
+        const incomingMeta = data?.meta || {};
+
+        setProducts(incomingItems);
+        setMeta({
+          page: Number(incomingMeta.page || 1),
+          limit: Number(incomingMeta.limit || 12),
+          total: Number(incomingMeta.total || 0),
+          totalPages: Number(incomingMeta.totalPages || 1),
+          categoryCounts: Array.isArray(incomingMeta.categoryCounts) ? incomingMeta.categoryCounts : [],
+          priceRange: incomingMeta.priceRange || { min: 0, max: 100 }
+        });
+
+        if (!priceInitialized) {
+          const dynamicMin = Number(incomingMeta?.priceRange?.min || 0);
+          const dynamicMax = Number(incomingMeta?.priceRange?.max || 100);
+          setPriceRange({ min: dynamicMin, max: dynamicMax });
+          setPriceInitialized(true);
+        }
+      } catch (requestError) {
+        if (!active) return;
+        setError(requestError.message || 'Failed to load collection');
+        setProducts([]);
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    loadProducts();
+
+    const refreshId = setInterval(loadProducts, 15000);
+    const onMarketplaceUpdate = () => loadProducts();
+    window.addEventListener('marketplace:updated', onMarketplaceUpdate);
+
+    return () => {
+      active = false;
+      clearInterval(refreshId);
+      window.removeEventListener('marketplace:updated', onMarketplaceUpdate);
+    };
+  }, [queryString, priceInitialized]);
 
   const resetFilters = () => {
     setSelectedCategory('All');
-    setPriceRange([0, 50]);
+    setPriceRange({
+      min: Number(meta.priceRange?.min || 0),
+      max: Number(meta.priceRange?.max || 100)
+    });
     setMinRating(0);
     setSortBy('featured');
+    setSearchQuery('');
+    setPage(1);
   };
 
   return (
     <div className="book-list-page">
       <Navbar />
-      
       <main className="book-list-container">
-        {/* Page Header */}
         <div className="page-header">
           <div className="header-content">
             <h1>Explore Our Collection</h1>
-            <p>Discover {sortedBooks.length} amazing books</p>
+            <p>Discover {meta.total} amazing products</p>
           </div>
-          <button 
-            className="mobile-filter-toggle"
-            onClick={() => setShowFilters(!showFilters)}
-          >
+          <button className="mobile-filter-toggle" onClick={() => setShowFilters(!showFilters)}>
             {showFilters ? '✕ Close Filters' : '⚙ Filters'}
           </button>
         </div>
 
         <div className="book-list-layout">
-          {/* Filters Sidebar */}
           <aside className={`filters-sidebar ${showFilters ? 'show' : ''}`}>
             <div className="filters-header">
               <h3>Filters</h3>
@@ -78,29 +152,25 @@ export default function BookList() {
               </button>
             </div>
 
-            {/* Category Filter */}
             <div className="filter-group">
               <h4>Category</h4>
               <div className="category-list">
                 {categories.map((category) => (
                   <button
-                    key={category}
-                    className={`category-btn ${selectedCategory === category ? 'active' : ''}`}
-                    onClick={() => setSelectedCategory(category)}
+                    key={category.name}
+                    className={`category-btn ${selectedCategory === category.name ? 'active' : ''}`}
+                    onClick={() => {
+                      setSelectedCategory(category.name);
+                      setPage(1);
+                    }}
                   >
-                    {category}
-                    {category === 'All' && <span className="count">({books.length})</span>}
-                    {category !== 'All' && (
-                      <span className="count">
-                        ({books.filter((b) => b.tag === category).length})
-                      </span>
-                    )}
+                    {category.name}
+                    <span className="count">({category.count})</span>
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Price Filter */}
             <div className="filter-group">
               <h4>Price Range</h4>
               <div className="price-inputs">
@@ -108,10 +178,14 @@ export default function BookList() {
                   <label>Min</label>
                   <input
                     type="number"
-                    value={priceRange[0]}
-                    onChange={(e) => setPriceRange([+e.target.value, priceRange[1]])}
+                    value={priceRange.min}
+                    onChange={(e) => {
+                      const nextMin = Number(e.target.value || 0);
+                      setPriceRange((prev) => ({ min: Math.min(nextMin, prev.max), max: prev.max }));
+                      setPage(1);
+                    }}
                     min="0"
-                    max={priceRange[1]}
+                    max={priceRange.max}
                   />
                 </div>
                 <span className="price-separator">-</span>
@@ -119,90 +193,150 @@ export default function BookList() {
                   <label>Max</label>
                   <input
                     type="number"
-                    value={priceRange[1]}
-                    onChange={(e) => setPriceRange([priceRange[0], +e.target.value])}
-                    min={priceRange[0]}
-                    max="100"
+                    value={priceRange.max}
+                    onChange={(e) => {
+                      const nextMax = Number(e.target.value || 0);
+                      setPriceRange((prev) => ({ min: prev.min, max: Math.max(nextMax, prev.min) }));
+                      setPage(1);
+                    }}
+                    min={priceRange.min}
+                    max={Math.max(priceRange.max, Number(meta.priceRange?.max || 100))}
                   />
                 </div>
               </div>
               <input
                 type="range"
-                min="0"
-                max="50"
-                value={priceRange[1]}
-                onChange={(e) => setPriceRange([priceRange[0], +e.target.value])}
+                min={Number(meta.priceRange?.min || 0)}
+                max={Math.max(Number(meta.priceRange?.max || 100), Number(priceRange.max || 0))}
+                value={priceRange.max}
+                onChange={(e) => {
+                  const next = Number(e.target.value);
+                  setPriceRange((prev) => ({ min: prev.min, max: Math.max(next, prev.min) }));
+                  setPage(1);
+                }}
                 className="price-slider"
               />
               <div className="price-display">
-                ${priceRange[0]} - ${priceRange[1]}
+                ${priceRange.min} - ${priceRange.max}
               </div>
             </div>
 
-            {/* Rating Filter */}
             <div className="filter-group">
               <h4>Minimum Rating</h4>
               <div className="rating-options">
-                {[0, 3, 3.5, 4, 4.5].map((rating) => (
+                {[0, 3, 4, 4.5].map((rating) => (
                   <button
                     key={rating}
                     className={`rating-btn ${minRating === rating ? 'active' : ''}`}
-                    onClick={() => setMinRating(rating)}
+                    onClick={() => {
+                      setMinRating(rating);
+                      setPage(1);
+                    }}
                   >
-                    {rating === 0 ? 'All Ratings' : (
-                      <>
-                        {rating}★ & up
-                      </>
-                    )}
+                    {rating === 0 ? 'All Ratings' : `${rating}★ & up`}
                   </button>
                 ))}
               </div>
             </div>
           </aside>
 
-          {/* Books Grid */}
           <div className="books-content">
-            {/* Sort and View Controls */}
             <div className="controls-bar">
               <div className="result-info">
-                Showing <strong>{sortedBooks.length}</strong> of <strong>{books.length}</strong> books
+                Showing <strong>{products.length}</strong> of <strong>{meta.total}</strong> products
+              </div>
+              <div className="sort-control">
+                <input
+                  value={searchQuery}
+                  onChange={(event) => {
+                    setSearchQuery(event.target.value);
+                    setPage(1);
+                  }}
+                  placeholder="Search by title or creator"
+                  className="rounded-full border border-[#e0ddd8] bg-white px-4 py-2 text-sm"
+                />
               </div>
               <div className="sort-control">
                 <label>Sort by:</label>
-                <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
-                  <option value="featured">Featured</option>
-                  <option value="name">Name (A-Z)</option>
-                  <option value="price-low">Price: Low to High</option>
-                  <option value="price-high">Price: High to Low</option>
-                  <option value="rating">Highest Rated</option>
+                <select
+                  value={sortBy}
+                  onChange={(e) => {
+                    setSortBy(e.target.value);
+                    setPage(1);
+                  }}
+                >
+                  {SORT_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
 
-            {/* Books Grid */}
-            {sortedBooks.length > 0 ? (
+            {loading ? (
+              <div className="no-results">
+                <h3>Loading products...</h3>
+              </div>
+            ) : error ? (
+              <div className="no-results">
+                <h3>Could not load products</h3>
+                <p>{error}</p>
+              </div>
+            ) : products.length > 0 ? (
               <div className="books-grid">
-                {sortedBooks.map((book) => (
+                {products.map((product) => (
                   <BookCard
-                    key={book.id}
-                    image={book.image}
-                    title={book.title}
-                    author={book.author}
-                    price={book.price}
-                    rating={book.rating}
-                    tag={book.tag}
-                    linkTo={`/books/${book.id}`}
-                    onAddToCart={() => addItem({ ...book, quantity: 1 })}
+                    key={String(product._id || product.id)}
+                    image={product.previewUrl}
+                    title={product.title}
+                    author={product.creator}
+                    price={`$${Number(product.price || 0).toFixed(2)}`}
+                    rating={Number(product.rating || 0)}
+                    tag={product.category}
+                    linkTo={`/marketplace/${String(product._id || product.id)}`}
+                    onAddToCart={() =>
+                      addItem({
+                        ...product,
+                        id: String(product._id || product.id),
+                        quantity: 1,
+                        price: `$${Number(product.price || 0).toFixed(2)}`
+                      })
+                    }
                   />
                 ))}
               </div>
             ) : (
               <div className="no-results">
                 <div className="no-results-icon">📚</div>
-                <h3>No books found</h3>
+                <h3>No products found</h3>
                 <p>Try adjusting your filters to see more results</p>
                 <button className="reset-filters-btn" onClick={resetFilters}>
                   Clear Filters
+                </button>
+              </div>
+            )}
+
+            {meta.totalPages > 1 && !loading && !error && (
+              <div className="controls-bar">
+                <button
+                  className="reset-btn"
+                  type="button"
+                  disabled={page <= 1}
+                  onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+                >
+                  Previous
+                </button>
+                <div className="result-info">
+                  Page <strong>{page}</strong> of <strong>{meta.totalPages}</strong>
+                </div>
+                <button
+                  className="reset-btn"
+                  type="button"
+                  disabled={page >= meta.totalPages}
+                  onClick={() => setPage((prev) => Math.min(meta.totalPages, prev + 1))}
+                >
+                  Next
                 </button>
               </div>
             )}
