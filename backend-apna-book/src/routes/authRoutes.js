@@ -1,6 +1,7 @@
 const express = require('express');
 const {
 	register,
+	requestRegisterOtp,
 	login,
 	me,
 	verifyEmailOtp,
@@ -12,6 +13,7 @@ const requireAuth = require('../middleware/auth');
 const router = express.Router();
 
 router.post('/register', register);
+router.post('/register/otp', requestRegisterOtp);
 router.post('/login', login);
 router.post('/verify-otp', verifyEmailOtp);
 router.post('/login-otp', requestLoginOtp);

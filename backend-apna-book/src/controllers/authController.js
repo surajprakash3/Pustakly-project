@@ -74,6 +74,11 @@ const createOtpRecord = async ({ db, email, type }) => {
   return otp;
 };
 
+const getLatestActiveOtpRecord = async ({ db, email, type }) =>
+  db
+    .collection('otp_codes')
+    .findOne({ email, type, usedAt: null }, { sort: { createdAt: -1 } });
+
 const verifyOtpRecord = async ({ db, email, type, otp }) => {
   const record = await db
     .collection('otp_codes')
@@ -100,37 +105,110 @@ const verifyOtpRecord = async ({ db, email, type, otp }) => {
   return { ok: true };
 };
 
+const requestRegisterOtp = async (req, res) => {
+  const db = req.app.locals.db;
+  const normalizedEmail = req.body.email?.toLowerCase();
+
+  if (!normalizedEmail) {
+    return res.status(400).json({ message: 'Email is required' });
+  }
+
+  const existing = await db.collection('users').findOne({ email: normalizedEmail });
+  if (existing?.isVerified) {
+    return res.status(409).json({ message: 'Email already registered' });
+  }
+
+  const activeRecord = await getLatestActiveOtpRecord({
+    db,
+    email: normalizedEmail,
+    type: 'register'
+  });
+
+  if (activeRecord?.expiresAt && activeRecord.expiresAt.getTime() > Date.now()) {
+    const retryAfterSeconds = Math.ceil((activeRecord.expiresAt.getTime() - Date.now()) / 1000);
+    return res.status(429).json({
+      message: 'OTP already sent. Request a new OTP after 5 minutes.',
+      retryAfterSeconds
+    });
+  }
+
+  const otp = await createOtpRecord({ db, email: normalizedEmail, type: 'register' });
+  await sendOtpEmail({ email: normalizedEmail, otp, purpose: 'verify' });
+
+  return res.json({ message: 'OTP sent to your email' });
+};
+
 const register = async (req, res) => {
   const db = req.app.locals.db;
-  const { name, email, password } = req.body;
-  const existing = await db.collection('users').findOne({ email: email.toLowerCase() });
-  if (existing) {
-    if (!existing.isVerified) {
-      const otp = await createOtpRecord({ db, email: existing.email, type: 'verify' });
-      await sendOtpEmail({ email: existing.email, otp, purpose: 'verify' });
-      return res.status(200).json({ message: 'OTP sent to your email' });
-    }
+  const { name, email, password, otp } = req.body;
+  const normalizedEmail = email?.toLowerCase();
+
+  if (!otp) {
+    return res.status(400).json({ message: 'OTP is required' });
+  }
+
+  const otpResult = await verifyOtpRecord({
+    db,
+    email: normalizedEmail,
+    type: 'register',
+    otp
+  });
+  if (!otpResult.ok) {
+    return res.status(400).json({ message: otpResult.message });
+  }
+
+  const existing = await db.collection('users').findOne({ email: normalizedEmail });
+  if (existing?.isVerified) {
     return res.status(409).json({ message: 'Email already registered' });
   }
 
   const hashed = await bcrypt.hash(password, 10);
-  const payload = {
-    name,
-    email: email.toLowerCase(),
-    password: hashed,
-    role: 'user',
-    status: 'Pending',
-    isVerified: false,
-    createdAt: new Date(),
-    updatedAt: new Date()
-  };
-  const result = await db.collection('users').insertOne(payload);
-  const user = { ...payload, _id: result.insertedId };
-  const otp = await createOtpRecord({ db, email: user.email, type: 'verify' });
-  await sendOtpEmail({ email: user.email, otp, purpose: 'verify' });
+  let user;
 
+  if (existing) {
+    const updatedAt = new Date();
+    await db.collection('users').updateOne(
+      { _id: existing._id },
+      {
+        $set: {
+          name,
+          password: hashed,
+          role: existing.role || 'user',
+          status: 'Active',
+          isVerified: true,
+          updatedAt
+        }
+      }
+    );
+    user = {
+      ...existing,
+      name,
+      password: hashed,
+      role: existing.role || 'user',
+      status: 'Active',
+      isVerified: true,
+      updatedAt
+    };
+  } else {
+    const payload = {
+      name,
+      email: normalizedEmail,
+      password: hashed,
+      role: 'user',
+      status: 'Active',
+      isVerified: true,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    const result = await db.collection('users').insertOne(payload);
+    user = { ...payload, _id: result.insertedId };
+  }
+
+  const token = signToken(user);
   return res.status(201).json({
-    message: 'OTP sent to your email'
+    message: 'Account created successfully',
+    token,
+    user: { id: user._id, name: user.name, email: user.email, role: user.role }
   });
 };
 
@@ -238,6 +316,7 @@ const me = async (req, res) => {
 
 module.exports = {
   register,
+  requestRegisterOtp,
   login,
   me,
   verifyEmailOtp,

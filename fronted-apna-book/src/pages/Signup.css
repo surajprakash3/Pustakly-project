@@ -21,6 +21,7 @@
   padding: 2.4rem;
   border: 1px solid var(--border);
   box-shadow: var(--shadow-lg);
+  -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
 }
 
@@ -121,6 +122,39 @@
   border-radius: 12px;
   font-weight: 700;
   font-size: 0.9rem;
+}
+
+.error-banner {
+  background: rgba(226, 88, 69, 0.12);
+  color: #ac2f20;
+  border: 1px solid rgba(226, 88, 69, 0.28);
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.otp-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.secondary-btn {
+  border: 1px solid var(--border);
+  background: var(--paper);
+  color: var(--dark);
+  font-weight: 700;
+  border-radius: 10px;
+  padding: 0.7rem 0.9rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.secondary-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .strength-meter {
@@ -225,5 +259,9 @@
   .auth-page .primary-btn {
     width: 100%;
     justify-content: center;
+  }
+
+  .otp-row {
+    grid-template-columns: 1fr;
   }
 }
