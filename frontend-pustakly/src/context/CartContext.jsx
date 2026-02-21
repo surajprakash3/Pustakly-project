@@ -12,7 +12,7 @@ export const CartContext = createContext({
 
 export function CartProvider({ children }) {
   const [items, setItems] = useState([]);
-  const { token } = useAuth();
+    const token = localStorage.getItem('token');
   const GUEST_CART_KEY = 'pustakly_cart';
 
   const normalizePrice = (value) => {
@@ -69,32 +69,39 @@ export function CartProvider({ children }) {
     }
   }, [items, token]);
 
+  // Helper: check if string is a valid MongoDB ObjectId
+  function isValidObjectId(id) {
+    return typeof id === 'string' && id.length === 24 && /^[a-fA-F0-9]+$/.test(id);
+  }
+
   const addItem = async (item) => {
-    if (!token) return; // Block guests
+    if (!token) throw new Error('You must be logged in to add to cart');
     const normalized = {
       ...item,
-      id: item.id || item.productId,
-      productId: item.productId || item.id,
+      id: item._id || item.id || item.productId,
+      productId: item._id || item.id || item.productId,
       price: normalizePrice(item.price),
       quantity: item.quantity ?? 1
     };
 
-    if (isObjectId(normalized.productId)) {
-      try {
-        const cart = await api.post(
-          '/api/cart/add',
-          {
-            productId: normalized.productId,
-            title: normalized.title,
-            price: normalized.price,
-            quantity: normalized.quantity
-          },
-          { token }
-        );
-        setItems(mapCartItems(cart.items));
-      } catch {
-        // fail silently
-      }
+    if (!isValidObjectId(normalized.productId)) {
+      throw new Error('Invalid product ID');
+    }
+
+    try {
+      const cart = await api.post(
+        '/api/cart/add',
+        {
+          productId: normalized.productId,
+          title: normalized.title,
+          price: normalized.price,
+          quantity: normalized.quantity
+        },
+        { token }
+      );
+        setItems(cart.items || []);
+    } catch (err) {
+      throw err;
     }
   };
 

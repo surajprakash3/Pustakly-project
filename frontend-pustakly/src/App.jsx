@@ -1,10 +1,16 @@
 
+
+
 import { Navigate, Route, Routes } from 'react-router-dom';
 import Home from './pages/Home.jsx';
 import BookList from './pages/BookList.jsx';
 import BookDetails from './pages/BookDetails.jsx';
+import Marketplace from './pages/Marketplace.jsx';
+import MarketplaceDetails from './pages/MarketplaceDetails.jsx';
 import Cart from './pages/Cart.jsx';
 import Checkout from './pages/Checkout.jsx';
+import OrderSuccess from './pages/OrderSuccess.jsx';
+import MyOrders from './pages/MyOrders.jsx';
 import Login from './pages/Login.jsx';
 import Signup from './pages/Signup.jsx';
 import AdminDashboard from './pages/AdminDashboard.jsx';
@@ -13,15 +19,13 @@ import AdminOrders from './pages/AdminOrders.jsx';
 import AdminUsers from './pages/AdminUsers.jsx';
 import AdminCategories from './pages/AdminCategories.jsx';
 import AdminReports from './pages/AdminReports.jsx';
-import UserProfile from './pages/UserProfile.jsx';
+import { RoleRedirect, LogoutRoute, RequireAuth, PublicOnly } from './components/RouteGuards.jsx';
 import UserLayout from './pages/UserLayout.jsx';
 import UserDashboard from './pages/UserDashboard.jsx';
 import UserBuy from './pages/UserBuy.jsx';
 import UserSell from './pages/UserSell.jsx';
 import SellerDashboard from './pages/SellerDashboard.jsx';
-import Marketplace from './pages/Marketplace.jsx';
-import MarketplaceDetails from './pages/MarketplaceDetails.jsx';
-import { LogoutRoute, PublicOnly, RequireAuth, RoleRedirect } from './components/RouteGuards.jsx';
+import UserProfile from './pages/UserProfile.jsx';
 
 function App() {
   return (
@@ -31,8 +35,10 @@ function App() {
       <Route path="/books/:id" element={<BookDetails />} />
       <Route path="/marketplace" element={<Marketplace />} />
       <Route path="/marketplace/:id" element={<MarketplaceDetails />} />
-      <Route path="/cart" element={<Cart />} />
-      <Route path="/checkout" element={<Checkout />} />
+      <Route path="/cart" element={<RequireAuth><Cart /></RequireAuth>} />
+      <Route path="/checkout" element={<RequireAuth><Checkout /></RequireAuth>} />
+      <Route path="/order-success/:id" element={<RequireAuth><OrderSuccess /></RequireAuth>} />
+      <Route path="/orders" element={<RequireAuth><MyOrders /></RequireAuth>} />
       <Route
         path="/login"
         element={

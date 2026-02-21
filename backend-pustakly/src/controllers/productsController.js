@@ -1,4 +1,7 @@
-const { ObjectId } = require('mongodb');
+
+const mongoose = require('mongoose');
+const Product = require('../models/Product');
+const ObjectId = mongoose.Types.ObjectId;
 
 const isValidObjectId = (value) => typeof value === 'string' && ObjectId.isValid(value);
 
@@ -70,300 +73,210 @@ const getSortStage = (sortBy) => {
 };
 
 const createProduct = async (req, res) => {
-  const db = req.app.locals.db;
-  const userId = new ObjectId(req.user.id);
-  const payload = {
-    title: req.body.title,
-    creator: req.body.creator,
-    description: req.body.description,
-    category: req.body.category,
-    type: req.body.type,
-    price: Number(req.body.price || 0),
-    status: req.body.status || 'Active',
-    approvalStatus: req.body.approvalStatus || 'Approved',
-    rating: Number(req.body.rating || 0),
-    ratingCount: Number(req.body.ratingCount || 0),
-    totalSales: Number(req.body.totalSales || 0),
-    fileUrl: req.body.fileUrl || '',
-    fileType: req.body.fileType || '',
-    previewUrl: req.body.previewUrl || '',
-    previewEnabled: req.body.previewEnabled !== false,
-    userId,
-    seller: userId,
-    createdAt: new Date(),
-    updatedAt: new Date()
-  };
-  const result = await db.collection('products').insertOne(payload);
-  return res.status(201).json({ ...payload, _id: result.insertedId });
+  try {
+    const userId = new ObjectId(req.user.id);
+    const payload = {
+      title: req.body.title,
+      creator: req.body.creator,
+      description: req.body.description,
+      category: req.body.category,
+      type: req.body.type,
+      price: Number(req.body.price || 0),
+      status: req.body.status || 'Active',
+      approvalStatus: req.body.approvalStatus || 'Approved',
+      rating: Number(req.body.rating || 0),
+      totalSales: Number(req.body.totalSales || 0),
+      seller: userId,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    const product = await Product.create(payload);
+    return res.status(201).json(product);
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
 };
 
 const listProducts = async (req, res) => {
-  const db = req.app.locals.db;
-  const {
-    approvalStatus,
-    status,
-    category,
-    type,
-    seller,
-    q,
-    minPrice,
-    maxPrice,
-    rating,
-    sort,
-    page,
-    limit,
-    withMeta
-  } = req.query;
+  try {
+    const {
+      approvalStatus,
+      status,
+      category,
+      type,
+      seller,
+      q,
+      minPrice,
+      maxPrice,
+      rating,
+      sort,
+      page,
+      limit,
+      withMeta
+    } = req.query;
 
-  const query = buildProductQuery({
-    approvalStatus,
-    status,
-    category,
-    type,
-    seller,
-    q,
-    minPrice,
-    maxPrice
-  });
-
-  if (rating !== undefined && rating !== '') {
-    query.rating = { $gte: Number(rating) };
-  }
-
-  const pageNumber = Math.max(1, Number(page || 1));
-  const pageSize = Math.max(1, Math.min(48, Number(limit || 24)));
-  const skip = (pageNumber - 1) * pageSize;
-  const sortStage = getSortStage(sort || 'featured');
-
-  const [result] = await db
-    .collection('products')
-    .aggregate([
-      { $match: query },
-      {
-        $facet: {
-          items: [
-            { $sort: sortStage },
-            { $skip: skip },
-            { $limit: pageSize },
-            {
-              $lookup: {
-                from: 'users',
-                localField: 'seller',
-                foreignField: '_id',
-                as: 'sellerInfo'
-              }
-            },
-            { $unwind: { path: '$sellerInfo', preserveNullAndEmptyArrays: true } },
-            {
-              $addFields: {
-                seller: {
-                  id: '$sellerInfo._id',
-                  name: '$sellerInfo.name',
-                  email: '$sellerInfo.email'
-                }
-              }
-            },
-            { $project: { sellerInfo: 0 } }
-          ],
-          totalCount: [{ $count: 'count' }],
-          categoryCounts: [
-            { $group: { _id: '$category', count: { $sum: 1 } } },
-            { $sort: { count: -1, _id: 1 } }
-          ],
-          priceRange: [
-            {
-              $group: {
-                _id: null,
-                min: { $min: '$price' },
-                max: { $max: '$price' }
-              }
-            }
-          ]
-        }
-      }
-    ])
-    .toArray();
-
-  const items = result?.items || [];
-  const total = Number(result?.totalCount?.[0]?.count || 0);
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const categoryCounts = (result?.categoryCounts || [])
-    .filter((entry) => entry._id)
-    .map((entry) => ({ category: entry._id, count: entry.count }));
-  const min = Number(result?.priceRange?.[0]?.min || 0);
-  const max = Number(result?.priceRange?.[0]?.max || 0);
-
-  if (String(withMeta).toLowerCase() === 'true') {
-    return res.json({
-      items,
-      meta: {
-        page: pageNumber,
-        limit: pageSize,
-        total,
-        totalPages,
-        categoryCounts,
-        priceRange: { min, max }
-      }
+    const query = buildProductQuery({
+      approvalStatus,
+      status,
+      category,
+      type,
+      seller,
+      q,
+      minPrice,
+      maxPrice
     });
-  }
 
-  return res.json(items);
+    if (rating !== undefined && rating !== '') {
+      query.rating = { $gte: Number(rating) };
+    }
+
+    const pageNumber = Math.max(1, Number(page || 1));
+    const pageSize = Math.max(1, Math.min(48, Number(limit || 24)));
+    const skip = (pageNumber - 1) * pageSize;
+    const sortStage = getSortStage(sort || 'featured');
+
+    const [items, total, categoryCounts, priceRange] = await Promise.all([
+      Product.find(query)
+        .sort(sortStage)
+        .skip(skip)
+        .limit(pageSize)
+        .populate('seller', 'name email'),
+      Product.countDocuments(query),
+      Product.aggregate([
+        { $match: query },
+        { $group: { _id: '$category', count: { $sum: 1 } } },
+        { $sort: { count: -1, _id: 1 } }
+      ]),
+      Product.aggregate([
+        { $match: query },
+        { $group: { _id: null, min: { $min: '$price' }, max: { $max: '$price' } } }
+      ])
+    ]);
+
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const min = Number(priceRange?.[0]?.min || 0);
+    const max = Number(priceRange?.[0]?.max || 0);
+    const catCounts = (categoryCounts || []).filter((entry) => entry._id).map((entry) => ({ category: entry._id, count: entry.count }));
+
+    if (String(withMeta).toLowerCase() === 'true') {
+      return res.json({
+        items,
+        meta: {
+          page: pageNumber,
+          limit: pageSize,
+          total,
+          totalPages,
+          categoryCounts: catCounts,
+          priceRange: { min, max }
+        }
+      });
+    }
+
+    return res.json(items);
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
 };
 
 const listTrendingProducts = async (req, res) => {
-  const db = req.app.locals.db;
-  const limit = Math.max(1, Math.min(Number(req.query.limit || 8), 24));
-
-  const products = await db
-    .collection('products')
-    .aggregate([
-      {
-        $match: {
-          $and: [
-            {
-              $or: [{ status: 'Active' }, { status: { $exists: false } }, { status: null }]
-            },
-            {
-              $or: [
-                { approvalStatus: 'Approved' },
-                { approvalStatus: { $exists: false } },
-                { approvalStatus: null }
-              ]
-            }
-          ]
-        }
-      },
-      {
-        $addFields: {
-          rating: { $ifNull: ['$rating', 0] },
-          totalSales: { $ifNull: ['$totalSales', 0] },
-          createdAt: { $ifNull: ['$createdAt', new Date(0)] }
-        }
-      },
-      { $sort: { totalSales: -1, rating: -1, createdAt: -1 } },
-      { $limit: limit },
-      {
-        $lookup: {
-          from: 'users',
-          localField: 'seller',
-          foreignField: '_id',
-          as: 'sellerInfo'
-        }
-      },
-      { $unwind: { path: '$sellerInfo', preserveNullAndEmptyArrays: true } },
-      {
-        $addFields: {
-          seller: {
-            id: '$sellerInfo._id',
-            name: '$sellerInfo.name',
-            email: '$sellerInfo.email'
-          }
-        }
-      },
-      { $project: { sellerInfo: 0 } }
-    ])
-    .toArray();
-
-  return res.json(products);
+  try {
+    const limit = Math.max(1, Math.min(Number(req.query.limit || 8), 24));
+    const products = await Product.find({
+      $or: [
+        { status: 'Active' },
+        { status: { $exists: false } },
+        { status: null }
+      ],
+      $or: [
+        { approvalStatus: 'Approved' },
+        { approvalStatus: { $exists: false } },
+        { approvalStatus: null }
+      ]
+    })
+      .sort({ totalSales: -1, rating: -1, createdAt: -1 })
+      .limit(limit)
+      .populate('seller', 'name email');
+    return res.json(products);
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
 };
 
 const getProduct = async (req, res) => {
-  const db = req.app.locals.db;
-  const product = await db
-    .collection('products')
-    .aggregate([
-      { $match: { _id: new ObjectId(req.params.id) } },
-      {
-        $lookup: {
-          from: 'users',
-          localField: 'seller',
-          foreignField: '_id',
-          as: 'sellerInfo'
-        }
-      },
-      { $unwind: { path: '$sellerInfo', preserveNullAndEmptyArrays: true } },
-      {
-        $addFields: {
-          seller: {
-            id: '$sellerInfo._id',
-            name: '$sellerInfo.name',
-            email: '$sellerInfo.email'
-          }
-        }
-      },
-      { $project: { sellerInfo: 0 } }
-    ])
-    .next();
-
-  if (!product) {
-    return res.status(404).json({ message: 'Product not found' });
+  try {
+    const product = await Product.findById(req.params.id).populate('seller', 'name email');
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+    return res.json(product);
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
   }
-  return res.json(product);
 };
 
 const updateProduct = async (req, res) => {
-  const db = req.app.locals.db;
-  const productId = new ObjectId(req.params.id);
-  const existing = await db.collection('products').findOne({ _id: productId });
-  if (!existing) {
-    return res.status(404).json({ message: 'Product not found' });
+  try {
+    const productId = req.params.id;
+    const existing = await Product.findById(productId);
+    if (!existing) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+    const ownerId = String(existing.seller || existing.userId || '');
+    const canModify = req.user.role === 'admin' || ownerId === req.user.id;
+    if (!canModify) {
+      return res.status(403).json({ message: 'Not allowed to update this product' });
+    }
+    await Product.findByIdAndUpdate(productId, { ...req.body, updatedAt: new Date() });
+    const product = await Product.findById(productId);
+    return res.json(product);
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
   }
-
-  const ownerId = String(existing.seller || existing.userId || '');
-  const canModify = req.user.role === 'admin' || ownerId === req.user.id;
-  if (!canModify) {
-    return res.status(403).json({ message: 'Not allowed to update this product' });
-  }
-
-  await db
-    .collection('products')
-    .updateOne({ _id: productId }, { $set: { ...req.body, updatedAt: new Date() } });
-  const product = await db.collection('products').findOne({ _id: productId });
-  return res.json(product);
 };
 
 const updateApproval = async (req, res) => {
-  const db = req.app.locals.db;
-  const { approvalStatus } = req.body;
-  await db
-    .collection('products')
-    .updateOne({ _id: new ObjectId(req.params.id) }, { $set: { approvalStatus, updatedAt: new Date() } });
-  const product = await db.collection('products').findOne({ _id: new ObjectId(req.params.id) });
-  if (!product) {
-    return res.status(404).json({ message: 'Product not found' });
+  try {
+    const { approvalStatus } = req.body;
+    await Product.findByIdAndUpdate(req.params.id, { approvalStatus, updatedAt: new Date() });
+    const product = await Product.findById(req.params.id);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+    return res.json(product);
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
   }
-  return res.json(product);
 };
 
 const deleteProduct = async (req, res) => {
-  const db = req.app.locals.db;
-  const productId = new ObjectId(req.params.id);
-  const existing = await db.collection('products').findOne({ _id: productId });
-  if (!existing) {
-    return res.status(404).json({ message: 'Product not found' });
+  try {
+    const productId = req.params.id;
+    const existing = await Product.findById(productId);
+    if (!existing) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+    const ownerId = String(existing.seller || existing.userId || '');
+    const canModify = req.user.role === 'admin' || ownerId === req.user.id;
+    if (!canModify) {
+      return res.status(403).json({ message: 'Not allowed to delete this product' });
+    }
+    const result = await Product.deleteOne({ _id: productId });
+    if (!result.deletedCount) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+    return res.json({ message: 'Product deleted' });
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
   }
-
-  const ownerId = String(existing.seller || existing.userId || '');
-  const canModify = req.user.role === 'admin' || ownerId === req.user.id;
-  if (!canModify) {
-    return res.status(403).json({ message: 'Not allowed to delete this product' });
-  }
-
-  const result = await db.collection('products').deleteOne({ _id: productId });
-  if (!result.deletedCount) {
-    return res.status(404).json({ message: 'Product not found' });
-  }
-  return res.json({ message: 'Product deleted' });
 };
 
 const myUploads = async (req, res) => {
-  const db = req.app.locals.db;
-  const products = await db
-    .collection('products')
-    .find({ seller: new ObjectId(req.user.id) })
-    .sort({ createdAt: -1 })
-    .toArray();
-  return res.json(products);
+  try {
+    const products = await Product.find({ seller: req.user.id }).sort({ createdAt: -1 });
+    return res.json(products);
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
 };
 
 module.exports = {

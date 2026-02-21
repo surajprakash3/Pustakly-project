@@ -1,7 +1,9 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
-const { ObjectId } = require('mongodb');
+const mongoose = require('mongoose');
+const User = require('../models/User');
+const Otp = require('../models/Otp');
 
 const normalizeRole = (role) => String(role || 'user').toLowerCase();
 
@@ -54,90 +56,64 @@ const sendOtpEmail = async ({ email, otp, purpose }) => {
   await transporter.sendMail({ from, to: email, subject, text });
 };
 
-const createOtpRecord = async ({ db, email, type }) => {
+const createOtpRecord = async ({ email, type }) => {
   const otp = generateOtp();
   const otpHash = await bcrypt.hash(otp, 10);
 
-  await db.collection('otp_codes').updateMany(
+  // Mark previous OTPs as used
+  await Otp.updateMany(
     { email, type, usedAt: null },
     { $set: { usedAt: new Date() } }
   );
 
-  const record = {
+  await Otp.create({
     email,
     type,
     otpHash,
     usedAt: null,
     expiresAt: new Date(Date.now() + OTP_TTL_MS),
     createdAt: new Date()
-  };
+  });
 
-  await db.collection('otp_codes').insertOne(record);
   return otp;
 };
 
-const upsertPendingSignup = async ({ db, fullName, email, password }) => {
+const PendingSignup = require('../models/PendingSignup');
+const upsertPendingSignup = async ({ fullName, email, password }) => {
   const passwordHash = await bcrypt.hash(password, 10);
   const now = new Date();
-
-  await db.collection('pending_signups').updateOne(
+  await PendingSignup.findOneAndUpdate(
     { email },
     {
-      $set: {
-        fullName,
-        email,
-        passwordHash,
-        updatedAt: now
-      },
-      $setOnInsert: {
-        createdAt: now
-      }
+      fullName,
+      email,
+      passwordHash,
+      updatedAt: now,
+      $setOnInsert: { createdAt: now }
     },
-    { upsert: true }
+    { upsert: true, new: true, setDefaultsOnInsert: true }
   );
 };
 
-const createOrActivateUser = async ({ db, fullName, email, passwordHash }) => {
-  const existing = await db.collection('users').findOne({ email });
-
+const createOrActivateUser = async ({ fullName, email, passwordHash }) => {
+  let existing = await User.findOne({ email });
   if (existing?.isVerified) {
     return { conflict: true };
   }
-
   const now = new Date();
-
   if (existing) {
     const normalizedRole = normalizeRole(existing.role);
-    await db.collection('users').updateOne(
-      { _id: existing._id },
-      {
-        $set: {
-          fullName,
-          name: fullName,
-          password: passwordHash,
-          role: normalizedRole,
-          status: 'Active',
-          isVerified: true,
-          updatedAt: now
-        }
-      }
-    );
-
-    return {
-      user: {
-        ...existing,
-        fullName,
-        name: fullName,
-        password: passwordHash,
-        role: normalizedRole,
-        status: 'Active',
-        isVerified: true,
-        updatedAt: now
-      }
-    };
+    existing.fullName = fullName;
+    existing.name = fullName;
+    existing.password = passwordHash;
+    existing.role = normalizedRole;
+    existing.status = 'Active';
+    existing.isVerified = true;
+    existing.updatedAt = now;
+    await existing.save();
+    return { user: existing };
   }
-
-  const payload = {
+  const user = await User.create({
     fullName,
     name: fullName,
     email,
@@ -147,42 +123,33 @@ const createOrActivateUser = async ({ db, fullName, email, passwordHash }) => {
     isVerified: true,
     createdAt: now,
     updatedAt: now
-  };
-  const result = await db.collection('users').insertOne(payload);
-
-  return {
-    user: { ...payload, _id: result.insertedId }
-  };
+  });
+  return { user };
 };
 
-const getLatestActiveOtpRecord = async ({ db, email, type }) =>
-  db
-    .collection('otp_codes')
-    .findOne({ email, type, usedAt: null }, { sort: { createdAt: -1 } });
+const getLatestActiveOtpRecord = async ({ email, type }) => {
+  return await Otp.findOne({
+    email,
+    type,
+    usedAt: null,
+    expiresAt: { $gt: new Date() }
+  }).sort({ createdAt: -1 });
+};
 
-const verifyOtpRecord = async ({ db, email, type, otp }) => {
-  const record = await db
-    .collection('otp_codes')
-    .findOne({ email, type, usedAt: null }, { sort: { createdAt: -1 } });
-
+const verifyOtpRecord = async ({ email, type, otp }) => {
+  const record = await Otp.findOne({ email, type, usedAt: null }).sort({ createdAt: -1 });
   if (!record) {
     return { ok: false, message: 'OTP not found' };
   }
-
   if (record.expiresAt && record.expiresAt.getTime() < Date.now()) {
     return { ok: false, message: 'OTP expired' };
   }
-
   const matches = await bcrypt.compare(otp, record.otpHash);
   if (!matches) {
     return { ok: false, message: 'Invalid OTP' };
   }
-
-  await db.collection('otp_codes').updateOne(
-    { _id: record._id },
-    { $set: { usedAt: new Date() } }
-  );
-
+  record.usedAt = new Date();
+  await record.save();
   return { ok: true };
 };
 
@@ -194,7 +161,7 @@ const requestRegisterOtp = async (req, res) => {
     return res.status(400).json({ message: 'Email is required' });
   }
 
-  const existing = await db.collection('users').findOne({ email: normalizedEmail });
+  const existing = await User.findOne({ email: normalizedEmail });
   if (existing?.isVerified) {
     return res.status(409).json({ message: 'Email already registered' });
   }
@@ -220,7 +187,6 @@ const requestRegisterOtp = async (req, res) => {
 };
 
 const register = async (req, res) => {
-  const db = req.app.locals.db;
   const { name, fullName, email, password, otp } = req.body;
   const normalizedEmail = email?.toLowerCase();
   const normalizedFullName = (fullName || name || '').trim();
@@ -230,7 +196,6 @@ const register = async (req, res) => {
   }
 
   const otpResult = await verifyOtpRecord({
-    db,
     email: normalizedEmail,
     type: 'register',
     otp
@@ -241,7 +206,6 @@ const register = async (req, res) => {
 
   const passwordHash = await bcrypt.hash(password, 10);
   const created = await createOrActivateUser({
-    db,
     fullName: normalizedFullName,
     email: normalizedEmail,
     passwordHash
@@ -251,7 +215,7 @@ const register = async (req, res) => {
     return res.status(409).json({ message: 'Email already registered' });
   }
 
-  await db.collection('pending_signups').deleteOne({ email: normalizedEmail });
+  await PendingSignup.deleteOne({ email: normalizedEmail });
 
   const user = created.user;
 
@@ -264,39 +228,44 @@ const register = async (req, res) => {
 };
 
 const requestSignupOtp = async (req, res) => {
-  const db = req.app.locals.db;
-  const fullName = (req.body.fullName || req.body.name || '').trim();
-  const email = req.body.email?.toLowerCase();
-  const password = req.body.password;
+  try {
+    const fullName = (req.body.fullName || req.body.name || '').trim();
+    const email = req.body.email?.toLowerCase();
+    const password = req.body.password;
 
-  if (!fullName || !email || !password) {
-    return res.status(400).json({ message: 'fullName, email and password are required' });
+    if (!fullName || !email || !password) {
+      return res.status(400).json({ message: 'fullName, email and password are required' });
+    }
+
+    const existing = await User.findOne({ email });
+    if (existing?.isVerified) {
+      return res.status(409).json({ message: 'Email already registered' });
+    }
+
+    const activeRecord = await getLatestActiveOtpRecord({ email, type: 'register' });
+    if (activeRecord) {
+      const retryAfterSeconds = Math.ceil((activeRecord.expiresAt.getTime() - Date.now()) / 1000);
+      if (retryAfterSeconds > 0) {
+        return res.status(429).json({
+          message: 'OTP already sent. Request a new OTP after 5 minutes.',
+          retryAfterSeconds
+        });
+      }
+    }
+
+    // Always upsert pending signup before sending OTP
+    await upsertPendingSignup({ fullName, email, password });
+
+    const otp = await createOtpRecord({ email, type: 'register' });
+    await sendOtpEmail({ email, otp, purpose: 'verify' });
+
+    return res.json({ message: 'OTP sent to your email' });
+  } catch (err) {
+    return res.status(500).json({ message: 'Failed to send OTP', error: err.message });
   }
-
-  const existing = await db.collection('users').findOne({ email });
-  if (existing?.isVerified) {
-    return res.status(409).json({ message: 'Email already registered' });
-  }
-
-  const activeRecord = await getLatestActiveOtpRecord({ db, email, type: 'register' });
-  if (activeRecord?.expiresAt && activeRecord.expiresAt.getTime() > Date.now()) {
-    const retryAfterSeconds = Math.ceil((activeRecord.expiresAt.getTime() - Date.now()) / 1000);
-    return res.status(429).json({
-      message: 'OTP already sent. Request a new OTP after 5 minutes.',
-      retryAfterSeconds
-    });
-  }
-
-  await upsertPendingSignup({ db, fullName, email, password });
-
-  const otp = await createOtpRecord({ db, email, type: 'register' });
-  await sendOtpEmail({ email, otp, purpose: 'verify' });
-
-  return res.json({ message: 'OTP sent to your email' });
 };
 
 const verifySignupOtp = async (req, res) => {
-  const db = req.app.locals.db;
   const email = req.body.email?.toLowerCase();
   const otp = req.body.otp;
 
@@ -304,18 +273,17 @@ const verifySignupOtp = async (req, res) => {
     return res.status(400).json({ message: 'email and otp are required' });
   }
 
-  const otpResult = await verifyOtpRecord({ db, email, type: 'register', otp });
+  const otpResult = await verifyOtpRecord({ email, type: 'register', otp });
   if (!otpResult.ok) {
     return res.status(400).json({ message: otpResult.message });
   }
 
-  const pending = await db.collection('pending_signups').findOne({ email });
+  const pending = await PendingSignup.findOne({ email });
   if (!pending) {
     return res.status(400).json({ message: 'No signup request found. Please request OTP again.' });
   }
 
   const created = await createOrActivateUser({
-    db,
     fullName: pending.fullName,
     email,
     passwordHash: pending.passwordHash
@@ -325,7 +293,7 @@ const verifySignupOtp = async (req, res) => {
     return res.status(409).json({ message: 'Email already registered' });
   }
 
-  await db.collection('pending_signups').deleteOne({ email });
+  await PendingSignup.deleteOne({ email });
 
   const user = created.user;
   const token = signToken(user);
@@ -338,9 +306,8 @@ const verifySignupOtp = async (req, res) => {
 };
 
 const login = async (req, res) => {
-  const db = req.app.locals.db;
   const { email, password } = req.body;
-  const user = await db.collection('users').findOne({ email: email.toLowerCase() });
+  const user = await User.findOne({ email: email.toLowerCase() });
   if (!user) {
     return res.status(401).json({ message: 'Invalid credentials' });
   }
@@ -351,7 +318,6 @@ const login = async (req, res) => {
   if (!matches) {
     return res.status(401).json({ message: 'Invalid credentials' });
   }
-
   const token = signToken(user);
   return res.json({
     token,
@@ -360,24 +326,19 @@ const login = async (req, res) => {
 };
 
 const verifyEmailOtp = async (req, res) => {
-  const db = req.app.locals.db;
   const { email, otp } = req.body;
-
-  const user = await db.collection('users').findOne({ email: email.toLowerCase() });
+  const user = await User.findOne({ email: email.toLowerCase() });
   if (!user) {
     return res.status(404).json({ message: 'User not found' });
   }
-
-  const result = await verifyOtpRecord({ db, email: user.email, type: 'verify', otp });
+  const result = await verifyOtpRecord({ email: user.email, type: 'verify', otp });
   if (!result.ok) {
     return res.status(400).json({ message: result.message });
   }
-
-  await db.collection('users').updateOne(
-    { _id: user._id },
-    { $set: { isVerified: true, status: 'Active', updatedAt: new Date() } }
-  );
-
+  user.isVerified = true;
+  user.status = 'Active';
+  user.updatedAt = new Date();
+  await user.save();
   const token = signToken(user);
   return res.json({
     token,
@@ -386,38 +347,31 @@ const verifyEmailOtp = async (req, res) => {
 };
 
 const requestLoginOtp = async (req, res) => {
-  const db = req.app.locals.db;
   const { email } = req.body;
-
-  const user = await db.collection('users').findOne({ email: email.toLowerCase() });
+  const user = await User.findOne({ email: email.toLowerCase() });
   if (!user) {
     return res.status(404).json({ message: 'User not found' });
   }
   if (!user.isVerified) {
-    const otp = await createOtpRecord({ db, email: user.email, type: 'verify' });
+    const otp = await createOtpRecord({ email: user.email, type: 'verify' });
     await sendOtpEmail({ email: user.email, otp, purpose: 'verify' });
     return res.status(403).json({ message: 'Email not verified. OTP sent for verification.' });
   }
-
-  const otp = await createOtpRecord({ db, email: user.email, type: 'login' });
+  const otp = await createOtpRecord({ email: user.email, type: 'login' });
   await sendOtpEmail({ email: user.email, otp, purpose: 'login' });
   return res.json({ message: 'OTP sent to your email' });
 };
 
 const requestPasswordResetOtp = async (req, res) => {
-  const db = req.app.locals.db;
   const email = req.body.email?.toLowerCase();
-
   if (!email) {
     return res.status(400).json({ message: 'Email is required' });
   }
-
-  const user = await db.collection('users').findOne({ email });
+  const user = await User.findOne({ email });
   if (!user) {
     return res.status(404).json({ message: 'User not found' });
   }
-
-  const activeRecord = await getLatestActiveOtpRecord({ db, email, type: 'reset' });
+  const activeRecord = await getLatestActiveOtpRecord({ email, type: 'reset' });
   if (activeRecord?.expiresAt && activeRecord.expiresAt.getTime() > Date.now()) {
     const retryAfterSeconds = Math.ceil((activeRecord.expiresAt.getTime() - Date.now()) / 1000);
     return res.status(429).json({
@@ -425,63 +379,49 @@ const requestPasswordResetOtp = async (req, res) => {
       retryAfterSeconds
     });
   }
-
-  const otp = await createOtpRecord({ db, email, type: 'reset' });
+  const otp = await createOtpRecord({ email, type: 'reset' });
   await sendOtpEmail({ email, otp, purpose: 'verify' });
-
   return res.json({ message: 'Password reset OTP sent to your email' });
 };
 
 const resetPasswordWithOtp = async (req, res) => {
-  const db = req.app.locals.db;
   const email = req.body.email?.toLowerCase();
   const otp = req.body.otp;
   const newPassword = req.body.newPassword;
-
   if (!email || !otp || !newPassword) {
     return res.status(400).json({ message: 'email, otp and newPassword are required' });
   }
-
   if (String(newPassword).length < 6) {
     return res.status(400).json({ message: 'Password must be at least 6 characters' });
   }
-
-  const user = await db.collection('users').findOne({ email });
+  const user = await User.findOne({ email });
   if (!user) {
     return res.status(404).json({ message: 'User not found' });
   }
-
-  const otpResult = await verifyOtpRecord({ db, email, type: 'reset', otp });
+  const otpResult = await verifyOtpRecord({ email, type: 'reset', otp });
   if (!otpResult.ok) {
     return res.status(400).json({ message: otpResult.message });
   }
-
   const passwordHash = await bcrypt.hash(newPassword, 10);
-  await db.collection('users').updateOne(
-    { _id: user._id },
-    { $set: { password: passwordHash, updatedAt: new Date() } }
-  );
-
+  user.password = passwordHash;
+  user.updatedAt = new Date();
+  await user.save();
   return res.json({ message: 'Password updated successfully. Please log in.' });
 };
 
 const verifyLoginOtp = async (req, res) => {
-  const db = req.app.locals.db;
   const { email, otp } = req.body;
-
-  const user = await db.collection('users').findOne({ email: email.toLowerCase() });
+  const user = await User.findOne({ email: email.toLowerCase() });
   if (!user) {
     return res.status(404).json({ message: 'User not found' });
   }
   if (!user.isVerified) {
     return res.status(403).json({ message: 'Email not verified' });
   }
-
-  const result = await verifyOtpRecord({ db, email: user.email, type: 'login', otp });
+  const result = await verifyOtpRecord({ email: user.email, type: 'login', otp });
   if (!result.ok) {
     return res.status(400).json({ message: result.message });
   }
-
   const token = signToken(user);
   return res.json({
     token,
@@ -491,9 +431,7 @@ const verifyLoginOtp = async (req, res) => {
 
 const me = async (req, res) => {
   const db = req.app.locals.db;
-  const user = await db
-    .collection('users')
-    .findOne({ _id: new ObjectId(req.user.id) }, { projection: { password: 0 } });
+  const user = await User.findById(req.user.id).select('-password');
   if (!user) {
     return res.status(404).json({ message: 'User not found' });
   }

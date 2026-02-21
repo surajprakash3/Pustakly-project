@@ -1,10 +1,70 @@
-import { useState } from 'react';
+
+import { useState, useContext } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { CartContext } from '../context/CartContext.jsx';
+import { useAuth } from '../context/AuthContext.jsx';
+import api from '../lib/api.js';
 import Navbar from '../components/Navbar.jsx';
 import Footer from '../components/Footer.jsx';
 import './Checkout.css';
 
+
 export default function Checkout() {
   const [paymentMethod, setPaymentMethod] = useState('card');
+  const [fields, setFields] = useState({
+    firstName: '',
+    lastName: '',
+    address: '',
+    city: '',
+    state: '',
+    postal: '',
+    phone: ''
+  });
+  const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(false);
+  const { items, clearCart } = useContext(CartContext);
+  const { token } = useAuth();
+  const navigate = useNavigate();
+
+  const validate = () => {
+    const nextErrors = {};
+    if (!fields.firstName.trim()) nextErrors.firstName = 'First name is required.';
+    if (!fields.lastName.trim()) nextErrors.lastName = 'Last name is required.';
+    if (!fields.address.trim()) nextErrors.address = 'Address is required.';
+    if (!fields.city.trim()) nextErrors.city = 'City is required.';
+    if (!fields.state.trim()) nextErrors.state = 'State is required.';
+    if (!fields.postal.trim()) nextErrors.postal = 'Postal code is required.';
+    if (!fields.phone.trim()) nextErrors.phone = 'Phone is required.';
+    else if (!/^\+?\d{10,15}$/.test(fields.phone.replace(/\s+/g, ''))) nextErrors.phone = 'Enter a valid phone number.';
+    if (!paymentMethod) nextErrors.paymentMethod = 'Select a payment method.';
+    if (!items || items.length === 0) nextErrors.cart = 'Your cart is empty.';
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
+
+  const handleField = (e) => {
+    setFields((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    setErrors((prev) => ({ ...prev, [e.target.name]: '' }));
+  };
+
+  const handlePlaceOrder = async () => {
+    if (!validate()) return;
+    setLoading(true);
+    try {
+      const shippingAddress = { ...fields };
+      const res = await api.post(
+        '/api/orders/create',
+        { shippingAddress, paymentMethod },
+        { token }
+      );
+      await clearCart();
+      navigate(`/order-success/${res.orderId}`);
+    } catch (err) {
+      setErrors((prev) => ({ ...prev, api: err.message || 'Order failed' }));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="checkout-page">
@@ -20,33 +80,40 @@ export default function Checkout() {
             <div className="form-section">
               <h2>Shipping Address</h2>
               <div className="form-grid">
-                <div className="input-group">
+                <div className={`input-group${errors.firstName ? ' invalid' : ''}`}>
                   <label>First Name</label>
-                  <input type="text" placeholder="Asha" />
+                  <input name="firstName" type="text" placeholder="Asha" value={fields.firstName} onChange={handleField} />
+                  {errors.firstName && <span className="error-text">{errors.firstName}</span>}
                 </div>
-                <div className="input-group">
+                <div className={`input-group${errors.lastName ? ' invalid' : ''}`}>
                   <label>Last Name</label>
-                  <input type="text" placeholder="Patel" />
+                  <input name="lastName" type="text" placeholder="Patel" value={fields.lastName} onChange={handleField} />
+                  {errors.lastName && <span className="error-text">{errors.lastName}</span>}
                 </div>
-                <div className="input-group full">
+                <div className={`input-group full${errors.address ? ' invalid' : ''}`}>
                   <label>Street Address</label>
-                  <input type="text" placeholder="221B Linden Lane" />
+                  <input name="address" type="text" placeholder="221B Linden Lane" value={fields.address} onChange={handleField} />
+                  {errors.address && <span className="error-text">{errors.address}</span>}
                 </div>
-                <div className="input-group">
+                <div className={`input-group${errors.city ? ' invalid' : ''}`}>
                   <label>City</label>
-                  <input type="text" placeholder="Mumbai" />
+                  <input name="city" type="text" placeholder="Mumbai" value={fields.city} onChange={handleField} />
+                  {errors.city && <span className="error-text">{errors.city}</span>}
                 </div>
-                <div className="input-group">
+                <div className={`input-group${errors.state ? ' invalid' : ''}`}>
                   <label>State</label>
-                  <input type="text" placeholder="Maharashtra" />
+                  <input name="state" type="text" placeholder="Maharashtra" value={fields.state} onChange={handleField} />
+                  {errors.state && <span className="error-text">{errors.state}</span>}
                 </div>
-                <div className="input-group">
+                <div className={`input-group${errors.postal ? ' invalid' : ''}`}>
                   <label>Postal Code</label>
-                  <input type="text" placeholder="400001" />
+                  <input name="postal" type="text" placeholder="400001" value={fields.postal} onChange={handleField} />
+                  {errors.postal && <span className="error-text">{errors.postal}</span>}
                 </div>
-                <div className="input-group">
+                <div className={`input-group${errors.phone ? ' invalid' : ''}`}>
                   <label>Phone</label>
-                  <input type="tel" placeholder="+91 98765 43210" />
+                  <input name="phone" type="tel" placeholder="+91 98765 43210" value={fields.phone} onChange={handleField} />
+                  {errors.phone && <span className="error-text">{errors.phone}</span>}
                 </div>
               </div>
             </div>
@@ -57,7 +124,7 @@ export default function Checkout() {
                 <button
                   type="button"
                   className={`payment-option ${paymentMethod === 'card' ? 'active' : ''}`}
-                  onClick={() => setPaymentMethod('card')}
+                  onClick={() => { setPaymentMethod('card'); setErrors((prev) => ({ ...prev, paymentMethod: '' })); }}
                 >
                   <span className="payment-title">Credit / Debit Card</span>
                   <span className="payment-sub">Visa, MasterCard, Amex</span>
@@ -65,7 +132,7 @@ export default function Checkout() {
                 <button
                   type="button"
                   className={`payment-option ${paymentMethod === 'upi' ? 'active' : ''}`}
-                  onClick={() => setPaymentMethod('upi')}
+                  onClick={() => { setPaymentMethod('upi'); setErrors((prev) => ({ ...prev, paymentMethod: '' })); }}
                 >
                   <span className="payment-title">UPI</span>
                   <span className="payment-sub">Instant secure transfer</span>
@@ -73,11 +140,12 @@ export default function Checkout() {
                 <button
                   type="button"
                   className={`payment-option ${paymentMethod === 'cod' ? 'active' : ''}`}
-                  onClick={() => setPaymentMethod('cod')}
+                  onClick={() => { setPaymentMethod('cod'); setErrors((prev) => ({ ...prev, paymentMethod: '' })); }}
                 >
                   <span className="payment-title">Cash on Delivery</span>
                   <span className="payment-sub">Pay when it arrives</span>
                 </button>
+                {errors.paymentMethod && <span className="error-text">{errors.paymentMethod}</span>}
               </div>
 
               {paymentMethod === 'card' && (
@@ -152,7 +220,8 @@ export default function Checkout() {
               <span>Total</span>
               <span>$38.64</span>
             </div>
-            <button className="place-order" type="button">
+            {errors.cart && <div className="error-text" style={{marginBottom:8}}>{errors.cart}</div>}
+            <button className="place-order" type="button" onClick={handlePlaceOrder} disabled={Object.keys(errors).length > 0}>
               Place Order
             </button>
             <p className="summary-note">By placing your order, you agree to our terms.</p>

@@ -1,4 +1,8 @@
-const { ObjectId } = require('mongodb');
+
+const mongoose = require('mongoose');
+const User = require('../models/User');
+const Order = require('../models/Order');
+const Product = require('../models/Product');
 
 const parseAmount = (value) => {
   if (typeof value === 'number') return value;
@@ -34,78 +38,75 @@ const toUploadDto = (product) => ({
   createdAt: product.createdAt || null
 });
 
-const getCurrentUser = async (db, userId) =>
-  db
-    .collection('users')
-    .findOne({ _id: userId }, { projection: { password: 0 } });
+
+const getCurrentUser = async (userId) => {
+  return User.findById(userId).select('-password');
+};
+
 
 const getUserDashboard = async (req, res) => {
-  const db = req.app.locals.db;
-  const userId = new ObjectId(req.user.id);
-
-  const [user, totalOrders, activeUploads, sellerOrders] = await Promise.all([
-    getCurrentUser(db, userId),
-    db.collection('orders').countDocuments({ buyer: userId }),
-    db.collection('products').countDocuments({ seller: userId, approvalStatus: { $ne: 'Sold' } }),
-    db
-      .collection('orders')
-      .find({
-        seller: userId,
+  try {
+    const userId = req.user.id;
+    const [user, totalOrders, activeUploads, sellerOrders] = await Promise.all([
+      getCurrentUser(userId),
+      Order.countDocuments({ userId }),
+      Product.countDocuments({ seller: userId, approvalStatus: { $ne: 'Sold' } }),
+      Order.find({
+        'items': { $elemMatch: { seller: new mongoose.Types.ObjectId(userId) } },
         status: { $nin: ['Cancelled', 'Refunded', 'Failed'] }
-      })
-      .project({ total: 1 })
-      .toArray()
-  ]);
+      }, { total: 1 })
+    ]);
 
-  if (!user) {
-    return res.status(404).json({ message: 'User not found' });
-  }
-
-  const totalEarnings = sellerOrders.reduce((sum, order) => sum + parseAmount(order.total), 0);
-
-  return res.json({
-    user: {
-      id: String(user._id),
-      name: user.name,
-      email: user.email,
-      role: user.role
-    },
-    stats: {
-      totalOrders,
-      activeUploads,
-      totalEarnings
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
     }
-  });
+
+    const totalEarnings = sellerOrders.reduce((sum, order) => sum + parseAmount(order.total), 0);
+
+    return res.json({
+      user: {
+        id: String(user._id),
+        name: user.name,
+        email: user.email,
+        role: user.role
+      },
+      stats: {
+        totalOrders,
+        activeUploads,
+        totalEarnings
+      }
+    });
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error', error: err.message });
+  }
 };
+
 
 const getUserOrders = async (req, res) => {
-  const db = req.app.locals.db;
-  const userId = new ObjectId(req.user.id);
-
-  const orders = await db
-    .collection('orders')
-    .find({ buyer: userId })
-    .sort({ createdAt: -1 })
-    .toArray();
-
-  return res.json({
-    items: orders.map(toOrderDto)
-  });
+  try {
+    const userId = req.user.id;
+    const orders = await Order.find({ userId })
+      .sort({ createdAt: -1 });
+    return res.json({
+      items: orders.map(toOrderDto)
+    });
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error', error: err.message });
+  }
 };
 
+
 const getUserUploads = async (req, res) => {
-  const db = req.app.locals.db;
-  const userId = new ObjectId(req.user.id);
-
-  const uploads = await db
-    .collection('products')
-    .find({ seller: userId })
-    .sort({ createdAt: -1 })
-    .toArray();
-
-  return res.json({
-    items: uploads.map(toUploadDto)
-  });
+  try {
+    const userId = req.user.id;
+    const uploads = await Product.find({ seller: userId })
+      .sort({ createdAt: -1 });
+    return res.json({
+      items: uploads.map(toUploadDto)
+    });
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error', error: err.message });
+  }
 };
 
 module.exports = {

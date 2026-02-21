@@ -1,17 +1,17 @@
-const express = require('express');
-const {
-  createOrder,
-  listOrders,
-  listMyOrders,
-  updateOrderStatus
-} = require('../controllers/ordersController');
-const requireAuth = require('../middleware/auth');
-const requireRole = require('../middleware/requireRole');
 
+const express = require('express');
+const { createOrder, getMyOrders, getOrderById } = require('../controllers/ordersController');
+const auth = require('../middleware/auth');
+const requireRole = require('../middleware/requireRole');
 const router = express.Router();
 
-router.post('/', requireAuth, createOrder);
-router.get('/', requireAuth, listMyOrders);
-router.patch('/:id/status', requireAuth, requireRole('admin'), updateOrderStatus);
+// POST /orders/create
+router.post('/create', auth, createOrder);
+
+// GET /orders/my-orders
+router.get('/my-orders', auth, getMyOrders);
+
+// GET /orders/:id (user's own order)
+router.get('/:id', auth, getOrderById);
 
 module.exports = router;

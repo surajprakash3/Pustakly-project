@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
-const { connectDB } = require('./config/db');
+const mongoose = require('mongoose');
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const userPortalRoutes = require('./routes/userPortalRoutes');
@@ -44,9 +44,11 @@ app.use('/api/cart', cartRoutes);
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
-connectDB()
-  .then(({ db }) => {
-    app.locals.db = db;
+const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/apnabook';
+
+mongoose.connect(MONGO_URI)
+  .then(() => {
+    console.log('MongoDB connected');
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
     });
