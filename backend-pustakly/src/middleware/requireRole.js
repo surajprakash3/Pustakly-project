@@ -1,5 +1,7 @@
 const requireRole = (role) => (req, res, next) => {
-  if (!req.user || req.user.role !== role) {
+  const requiredRole = String(role || '').toLowerCase();
+  const actualRole = String(req.user?.role || '').toLowerCase();
+  if (!actualRole || actualRole !== requiredRole) {
     return res.status(403).json({ message: 'Forbidden' });
   }
   return next();

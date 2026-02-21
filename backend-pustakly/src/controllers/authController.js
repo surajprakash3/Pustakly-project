@@ -3,8 +3,10 @@ const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
 const { ObjectId } = require('mongodb');
 
+const normalizeRole = (role) => String(role || 'user').toLowerCase();
+
 const signToken = (user) =>
-  jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET || 'dev_secret', {
+  jwt.sign({ id: user._id, role: normalizeRole(user.role) }, process.env.JWT_SECRET || 'dev_secret', {
     expiresIn: '7d'
   });
 
@@ -105,6 +107,7 @@ const createOrActivateUser = async ({ db, fullName, email, passwordHash }) => {
   const now = new Date();
 
   if (existing) {
+    const normalizedRole = normalizeRole(existing.role);
     await db.collection('users').updateOne(
       { _id: existing._id },
       {
@@ -112,7 +115,7 @@ const createOrActivateUser = async ({ db, fullName, email, passwordHash }) => {
           fullName,
           name: fullName,
           password: passwordHash,
-          role: existing.role || 'user',
+          role: normalizedRole,
           status: 'Active',
           isVerified: true,
           updatedAt: now
@@ -126,7 +129,7 @@ const createOrActivateUser = async ({ db, fullName, email, passwordHash }) => {
         fullName,
         name: fullName,
         password: passwordHash,
-        role: existing.role || 'user',
+        role: normalizedRole,
         status: 'Active',
         isVerified: true,
         updatedAt: now
@@ -352,7 +355,7 @@ const login = async (req, res) => {
   const token = signToken(user);
   return res.json({
     token,
-    user: { id: user._id, name: user.name, email: user.email, role: user.role }
+    user: { id: user._id, name: user.name, email: user.email, role: normalizeRole(user.role) }
   });
 };
 
@@ -378,7 +381,7 @@ const verifyEmailOtp = async (req, res) => {
   const token = signToken(user);
   return res.json({
     token,
-    user: { id: user._id, name: user.name, email: user.email, role: user.role }
+    user: { id: user._id, name: user.name, email: user.email, role: normalizeRole(user.role) }
   });
 };
 
@@ -482,7 +485,7 @@ const verifyLoginOtp = async (req, res) => {
   const token = signToken(user);
   return res.json({
     token,
-    user: { id: user._id, name: user.name, email: user.email, role: user.role }
+    user: { id: user._id, name: user.name, email: user.email, role: normalizeRole(user.role) }
   });
 };
 

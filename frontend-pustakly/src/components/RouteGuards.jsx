@@ -18,6 +18,8 @@ export function AppSpinner({ label = 'Loading' }) {
 export function RequireAuth({ children, role }) {
   const { user, loading } = useAuth();
   const location = useLocation();
+  const requiredRole = role ? String(role).toLowerCase() : null;
+  const userRole = user?.role ? String(user.role).toLowerCase() : null;
 
   if (loading) {
     return <AppSpinner label="Checking session" />;
@@ -27,7 +29,7 @@ export function RequireAuth({ children, role }) {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
-  if (role && user.role !== role) {
+  if (requiredRole && userRole !== requiredRole) {
     return <Navigate to="/" replace />;
   }
 
