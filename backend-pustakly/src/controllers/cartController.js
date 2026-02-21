@@ -67,7 +67,7 @@ const updateCartItem = async (req, res) => {
       return res.status(404).json({ message: 'Cart not found' });
     }
 
-    const itemId = mongoose.Types.ObjectId(productId);
+    const itemId = new mongoose.Types.ObjectId(productId);
     const item = cart.items.find((item) => item.productId.equals(itemId));
     if (!item) {
       return res.status(404).json({ message: 'Item not found in cart' });
@@ -75,7 +75,7 @@ const updateCartItem = async (req, res) => {
     item.quantity = Math.max(1, Number(quantity));
     cart.recalculateSubtotal();
     await cart.save();
-    return res.json(cart);
+    return res.json({ items: cart.items, subtotal: cart.subtotal });
   } catch (err) {
     return res.status(500).json({ message: err.message });
   }

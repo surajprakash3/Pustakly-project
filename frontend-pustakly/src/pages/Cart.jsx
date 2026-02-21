@@ -22,11 +22,11 @@ export default function Cart() {
   }, 0);
 
   const increment = (item) => {
-    updateItemQuantity(item.id, (item.quantity ?? 1) + 1);
+    updateItemQuantity(item.productId, (item.quantity ?? 1) + 1);
   };
 
   const decrement = (item) => {
-    updateItemQuantity(item.id, (item.quantity ?? 1) - 1);
+    updateItemQuantity(item.productId, (item.quantity ?? 1) - 1);
   };
 
   return (
@@ -55,7 +55,7 @@ export default function Cart() {
           <div className="cart-layout">
             <section className="cart-items">
               {items.map((item) => (
-                <article key={item.id} className="cart-item">
+                <article key={item.productId} className="cart-item">
                   <div className="item-cover">
                     {item.image ? (
                       <img src={item.image} alt={item.title} />
@@ -89,7 +89,7 @@ export default function Cart() {
                   <button
                     className="remove-item"
                     type="button"
-                    onClick={() => removeItem(item.id)}
+                    onClick={() => removeItem(item.productId)}
                   >
                     Remove
                   </button>

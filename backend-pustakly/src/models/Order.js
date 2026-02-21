@@ -1,24 +1,19 @@
 const mongoose = require('mongoose');
 
-const orderItemSchema = new mongoose.Schema({
-  productId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Product',
-    required: true
-  },
-  title: String,
-  price: Number,
-  quantity: Number
-}, { _id: false });
-
 const orderSchema = new mongoose.Schema({
-  userId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
-  },
-  items: [orderItemSchema],
-  shippingAddress: {
+  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  items: [
+    {
+      productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
+      title: String,
+      price: Number,
+      quantity: Number
+    }
+  ],
+  subtotal: { type: Number, required: true },
+  tax: { type: Number, required: true },
+  total: { type: Number, required: true },
+  shippingInfo: {
     firstName: String,
     lastName: String,
     address: String,
@@ -27,19 +22,14 @@ const orderSchema = new mongoose.Schema({
     postal: String,
     phone: String
   },
-  paymentMethod: { type: String, required: true },
-  subtotal: Number,
-  tax: Number,
-  total: Number,
-  status: {
-    type: String,
-    enum: ['Processing', 'Shipped', 'Delivered'],
-    default: 'Processing'
+  paymentMethod: { type: String, enum: ['card', 'upi', 'cod'], required: true },
+  paymentDetails: {
+    cardNumber: String,
+    expiry: String,
+    name: String,
+    upi: String
   },
-  createdAt: {
-    type: Date,
-    default: Date.now
-  }
-});
+  status: { type: String, enum: ['Placed', 'Processing', 'Shipped', 'Delivered', 'Pending', 'Paid', 'COD'], default: 'Placed' }
+}, { timestamps: true });
 
 module.exports = mongoose.model('Order', orderSchema);

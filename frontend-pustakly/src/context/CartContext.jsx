@@ -110,9 +110,11 @@ export function CartProvider({ children }) {
     if (isObjectId(id)) {
       try {
         const cart = await api.delete('/api/cart/remove', { token, body: { productId: id } });
+        console.log('removeItem response:', cart);
         setItems(mapCartItems(cart.items));
         return;
-      } catch {
+      } catch (err) {
+        console.error('removeItem error:', err);
         return;
       }
     }
@@ -125,9 +127,11 @@ export function CartProvider({ children }) {
     if (isObjectId(id)) {
       try {
         const cart = await api.put('/api/cart/update', { productId: id, quantity: nextQuantity }, { token });
+        console.log('updateItemQuantity response:', cart);
         setItems(mapCartItems(cart.items));
         return;
-      } catch {
+      } catch (err) {
+        console.error('updateItemQuantity error:', err);
         return;
       }
     }

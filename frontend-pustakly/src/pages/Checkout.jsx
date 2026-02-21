@@ -51,10 +51,40 @@ export default function Checkout() {
     if (!validate()) return;
     setLoading(true);
     try {
-      const shippingAddress = { ...fields };
+      // Prepare order payload
+      const shippingInfo = {
+        firstName: fields.firstName,
+        lastName: fields.lastName,
+        address: fields.address,
+        city: fields.city,
+        state: fields.state,
+        postal: fields.postal,
+        phone: fields.phone
+      };
+      const orderItems = items.map(item => ({
+        productId: item.productId,
+        title: item.title,
+        price: item.price,
+        quantity: item.quantity
+      }));
+      // Calculate subtotal, tax, total
+      const subtotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+      const tax = Math.round(subtotal * 0.06 * 100) / 100; // 6% tax
+      const total = Math.round((subtotal + tax) * 100) / 100;
+      // Payment details (for demo, not storing sensitive info)
+      const paymentDetails = {};
+      // Send order to backend
       const res = await api.post(
-        '/api/orders/create',
-        { shippingAddress, paymentMethod },
+        '/api/orders',
+        {
+          items: orderItems,
+          shippingInfo,
+          paymentMethod,
+          paymentDetails,
+          subtotal,
+          tax,
+          total
+        },
         { token }
       );
       await clearCart();
@@ -221,9 +251,19 @@ export default function Checkout() {
               <span>$38.64</span>
             </div>
             {errors.cart && <div className="error-text" style={{marginBottom:8}}>{errors.cart}</div>}
-            <button className="place-order" type="button" onClick={handlePlaceOrder} disabled={Object.keys(errors).length > 0}>
-              Place Order
+            <button className="place-order" type="button" onClick={handlePlaceOrder} disabled={Object.keys(errors).length > 0 || loading}>
+              {loading ? (
+                <span className="loader-spinner" style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: 8 }}>
+                  <svg width="22" height="22" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="22" cy="22" r="20" stroke="#2e7d32" strokeWidth="4" strokeDasharray="31.4 31.4" strokeLinecap="round">
+                      <animateTransform attributeName="transform" type="rotate" repeatCount="indefinite" dur="0.8s" from="0 22 22" to="360 22 22"/>
+                    </circle>
+                  </svg>
+                  Placing order...
+                </span>
+              ) : 'Place Order'}
             </button>
+            {errors.api && <div className="error-text" style={{marginBottom:8}}>{errors.api}</div>}
             <p className="summary-note">By placing your order, you agree to our terms.</p>
           </aside>
         </div>

@@ -1,0 +1,33 @@
+.order-tracker {
+  display: flex;
+  align-items: center;
+  margin: 24px 0 16px 0;
+}
+.tracker-step {
+  display: flex;
+  align-items: center;
+  position: relative;
+  color: #bbb;
+  font-weight: 500;
+}
+.tracker-step.completed {
+  color: #2e7d32;
+}
+.tracker-icon {
+  font-size: 1.5rem;
+  margin-right: 6px;
+}
+.tracker-label {
+  margin-right: 12px;
+}
+.tracker-bar {
+  width: 36px;
+  height: 4px;
+  background: #bbb;
+  border-radius: 2px;
+  margin: 0 8px;
+  display: inline-block;
+}
+.tracker-step.completed .tracker-bar {
+  background: #2e7d32;
+}

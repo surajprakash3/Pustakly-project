@@ -1,10 +1,12 @@
 
 import { useParams, Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
+
 import Navbar from '../components/Navbar.jsx';
 import Footer from '../components/Footer.jsx';
 import api from '../lib/api.js';
 import { useAuth } from '../context/AuthContext.jsx';
+import OrderTracker from '../components/OrderTracker.jsx';
 import './Checkout.css';
 
 export default function OrderSuccess() {
@@ -45,7 +47,13 @@ export default function OrderSuccess() {
               <h2>Order Placed Successfully!</h2>
               <p className="order-id">Order ID: <b>{order._id}</b></p>
               <div className="order-section">
-                <h3>Items</h3>
+                <OrderTracker status={order.status} />
+                <div style={{marginTop:8, marginBottom:8}}>
+                  <b>Estimated Delivery:</b> {getEstimatedDelivery(order.status)}
+                </div>
+              </div>
+              <div className="order-section">
+                <h3>Order Summary</h3>
                 <ul className="order-items-list">
                   {order.items.map((item, idx) => (
                     <li key={idx} className="order-item-row">
@@ -55,14 +63,13 @@ export default function OrderSuccess() {
                     </li>
                   ))}
                 </ul>
-              </div>
-              <div className="order-section">
-                <h3>Total Paid</h3>
-                <p><b>₹{order.total}</b></p>
+                <div style={{marginTop:8}}>
+                  <b>Total Paid:</b> ₹{order.total}
+                </div>
               </div>
               <div className="order-section">
                 <h3>Delivery Address</h3>
-                <p>{order.shippingAddress.firstName} {order.shippingAddress.lastName}, {order.shippingAddress.address}, {order.shippingAddress.city}, {order.shippingAddress.state}, {order.shippingAddress.postal}, {order.shippingAddress.phone}</p>
+                <p>{order.shippingInfo?.firstName} {order.shippingInfo?.lastName}, {order.shippingInfo?.address}, {order.shippingInfo?.city}, {order.shippingInfo?.state}, {order.shippingInfo?.postal}, {order.shippingInfo?.phone}</p>
               </div>
               <div className="order-section">
                 <h3>Status</h3>
@@ -70,6 +77,8 @@ export default function OrderSuccess() {
               </div>
             </>
           )}
+
+          
           <Link to="/orders" className="view-orders-link">View My Orders</Link>
         </div>
       </main>
