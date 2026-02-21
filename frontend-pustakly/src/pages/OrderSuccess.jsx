@@ -31,55 +31,51 @@ export default function OrderSuccess() {
     if (id && token) fetchOrder();
   }, [id, token]);
 
+  // Helper for estimated delivery
+  function getEstimatedDelivery(status) {
+    const days = status === 'Delivered' ? 0 : status === 'Shipped' ? 1 : 3;
+    const date = new Date();
+    date.setDate(date.getDate() + days);
+    return date.toLocaleDateString();
+  }
+
   return (
-    <div className="checkout-page">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       <Navbar />
-      <main className="checkout-container">
-        <div className="checkout-header">
-          <h1>Order Confirmation</h1>
-          <p>Thank you for your purchase.</p>
-        </div>
-        <div className="order-success-box">
-          {loading && <p>Loading...</p>}
-          {error && <p className="error-text">{error}</p>}
+      <main className="flex-1 flex flex-col items-center justify-center py-10">
+        <div className="w-full max-w-md mx-auto bg-white rounded-2xl shadow-2xl p-8 flex flex-col items-center animate-fade-in-up">
+          {loading && <p className="text-lg text-gray-500">Loading...</p>}
+          {error && <p className="text-red-600 font-semibold">{error}</p>}
           {order && (
             <>
-              <h2>Order Placed Successfully!</h2>
-              <p className="order-id">Order ID: <b>{order._id}</b></p>
-              <div className="order-section">
-                <OrderTracker status={order.status} />
-                <div style={{marginTop:8, marginBottom:8}}>
-                  <b>Estimated Delivery:</b> {getEstimatedDelivery(order.status)}
+              <div className="flex flex-col items-center mb-4">
+                <div className="bg-green-100 rounded-full p-4 mb-2 animate-bounce">
+                  <svg className="w-14 h-14 text-green-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" fill="white"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2l4-4" /></svg>
+                </div>
+                <h2 className="text-2xl font-bold text-green-700 mb-1">Order Confirmed Successfully!</h2>
+                <p className="text-gray-600">Thank you for shopping with us.</p>
+              </div>
+              <div className="w-full bg-gray-50 rounded-xl shadow p-4 mb-4">
+                <div className="flex justify-between mb-2">
+                  <span className="font-semibold">Order ID:</span>
+                  <span className="font-mono">{order._id}</span>
+                </div>
+                <div className="flex justify-between mb-2">
+                  <span className="font-semibold">Total Paid:</span>
+                  <span className="text-green-700 font-bold">₹{order.total}</span>
+                </div>
+                <div className="flex justify-between mb-2">
+                  <span className="font-semibold">Estimated Delivery:</span>
+                  <span>{getEstimatedDelivery(order.status)}</span>
                 </div>
               </div>
-              <div className="order-section">
-                <h3>Order Summary</h3>
-                <ul className="order-items-list">
-                  {order.items.map((item, idx) => (
-                    <li key={idx} className="order-item-row">
-                      <span>{item.title}</span>
-                      <span>Qty: {item.quantity}</span>
-                      <span>₹{item.price}</span>
-                    </li>
-                  ))}
-                </ul>
-                <div style={{marginTop:8}}>
-                  <b>Total Paid:</b> ₹{order.total}
-                </div>
-              </div>
-              <div className="order-section">
-                <h3>Delivery Address</h3>
-                <p>{order.shippingInfo?.firstName} {order.shippingInfo?.lastName}, {order.shippingInfo?.address}, {order.shippingInfo?.city}, {order.shippingInfo?.state}, {order.shippingInfo?.postal}, {order.shippingInfo?.phone}</p>
-              </div>
-              <div className="order-section">
-                <h3>Status</h3>
-                <p><b>{order.status}</b></p>
+              <OrderTracker status={order.status} />
+              <div className="flex gap-4 mt-6 w-full">
+                <Link to={`/orders/${order._id}`} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg shadow text-center transition-all">Track Order</Link>
+                <Link to="/" className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 rounded-lg shadow text-center transition-all">Continue Shopping</Link>
               </div>
             </>
           )}
-
-          
-          <Link to="/orders" className="view-orders-link">View My Orders</Link>
         </div>
       </main>
       <Footer />

@@ -27,6 +27,12 @@ const placeOrder = async (req, res) => {
       status
     });
     await order.save();
+    // Clear user cart after successful order
+    const Cart = require('../models/Cart');
+    await Cart.findOneAndUpdate(
+      { userId },
+      { $set: { items: [], subtotal: 0 } }
+    );
     return res.json({ success: true, orderId: order._id });
   } catch (err) {
     return res.status(500).json({ message: err.message });

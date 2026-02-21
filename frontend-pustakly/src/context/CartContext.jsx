@@ -4,13 +4,14 @@ import { useAuth } from './AuthContext.jsx';
 
 export const CartContext = createContext({
   items: [],
-  addItem: () => {},
-  removeItem: () => {},
-  updateItemQuantity: () => {},
-  clearCart: () => {}
+  addItem: () => { },
+  removeItem: () => { },
+  updateItemQuantity: () => { },
+  clearCart: () => { }
 });
 
 export function CartProvider({ children }) {
+
   const [items, setItems] = useState([]);
   const { token } = useAuth();
   const GUEST_CART_KEY = 'pustakly_cart';
@@ -87,7 +88,6 @@ export function CartProvider({ children }) {
     if (!isValidObjectId(normalized.productId)) {
       throw new Error('Invalid product ID');
     }
-
     try {
       const cart = await api.post(
         '/api/cart/add',
@@ -99,27 +99,23 @@ export function CartProvider({ children }) {
         },
         { token }
       );
-        setItems(cart.items || []);
+      setItems(cart.items || []);
     } catch (err) {
       throw err;
     }
   };
-
   const removeItem = async (id) => {
     if (!token) return; // Block guests
     if (isObjectId(id)) {
       try {
         const cart = await api.delete('/api/cart/remove', { token, body: { productId: id } });
-        console.log('removeItem response:', cart);
         setItems(mapCartItems(cart.items));
         return;
       } catch (err) {
-        console.error('removeItem error:', err);
         return;
       }
     }
   };
-
   const updateItemQuantity = async (id, quantity) => {
     if (!token) return; // Block guests
     const nextQuantity = Math.max(1, quantity);
@@ -127,36 +123,27 @@ export function CartProvider({ children }) {
     if (isObjectId(id)) {
       try {
         const cart = await api.put('/api/cart/update', { productId: id, quantity: nextQuantity }, { token });
-        console.log('updateItemQuantity response:', cart);
         setItems(mapCartItems(cart.items));
         return;
       } catch (err) {
-        console.error('updateItemQuantity error:', err);
         return;
       }
     }
   };
 
   const clearCart = async () => {
-    if (!token) return; // Block guests
-    if (items.some((item) => isObjectId(item.id))) {
-      try {
-        await Promise.all(
-          items
-            .filter((item) => isObjectId(item.id))
-            .map((item) => api.delete('/api/cart/remove', { token, body: { productId: item.id } }))
-        );
-      } catch {
-        return;
-      }
+    if (token) {
+      await api.post('/api/cart/clear', {}, { token });
+      setItems([]);
+    } else {
+      setItems([]);
+      localStorage.setItem(GUEST_CART_KEY, JSON.stringify([]));
     }
-    setItems([]);
   };
 
-  const value = useMemo(
-    () => ({ items, addItem, removeItem, updateItemQuantity, clearCart }),
-    [items]
+  return (
+    <CartContext.Provider value={{ items, addItem, removeItem, updateItemQuantity, clearCart }}>
+      {children}
+    </CartContext.Provider>
   );
-
-  return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }
