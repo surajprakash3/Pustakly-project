@@ -91,9 +91,16 @@ export default function Login() {
           localStorage.removeItem('apnabook_remember_email');
         }
 
-        const fallback = result.user.role === 'admin' ? '/admin/dashboard' : '/user/dashboard';
-        const destination = location.state?.from?.pathname || fallback;
-        navigate(destination, { replace: true });
+        // Redirect to previous page if set, else dashboard
+        const redirectPath = localStorage.getItem('pustakly_redirect_after_login');
+        if (redirectPath) {
+          localStorage.removeItem('pustakly_redirect_after_login');
+          window.location.href = redirectPath;
+        } else {
+          const fallback = result.user.role === 'admin' ? '/admin/dashboard' : '/user/dashboard';
+          const destination = location.state?.from?.pathname || fallback;
+          navigate(destination, { replace: true });
+        }
       } catch (error) {
         setErrors((prev) => ({ ...prev, form: error.message }));
         setSuccess('');

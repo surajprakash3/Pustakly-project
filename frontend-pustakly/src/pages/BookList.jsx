@@ -1,4 +1,6 @@
 import { useContext, useEffect, useMemo, useState } from 'react';
+import { useAuth } from '../context/AuthContext.jsx';
+import Toast from '../components/Toast.jsx';
 import Navbar from '../components/Navbar.jsx';
 import BookCard from '../components/BookCard.jsx';
 import Footer from '../components/Footer.jsx';
@@ -16,6 +18,8 @@ const SORT_OPTIONS = [
 
 export default function BookList() {
   const { addItem } = useContext(CartContext);
+  const { token } = useAuth();
+  const [toastMsg, setToastMsg] = useState('');
 
   const [products, setProducts] = useState([]);
   const [meta, setMeta] = useState({
@@ -295,14 +299,25 @@ export default function BookList() {
                     rating={Number(product.rating || 0)}
                     tag={product.category}
                     linkTo={`/marketplace/${String(product._id || product.id)}`}
-                    onAddToCart={() =>
+                    onAddToCart={() => {
+                      if (!token) {
+                        setToastMsg('Please login first to add items to cart');
+                        setTimeout(() => {
+                          setToastMsg('');
+                          // Store intended path for redirect after login
+                          localStorage.setItem('pustakly_redirect_after_login', window.location.pathname + window.location.search);
+                          window.location.href = '/login';
+                        }, 1500);
+                        return;
+                      }
                       addItem({
                         ...product,
                         id: String(product._id || product.id),
                         quantity: 1,
                         price: `$${Number(product.price || 0).toFixed(2)}`
-                      })
-                    }
+                      });
+                    }}
+                    disableAdd={!token}
                   />
                 ))}
               </div>
@@ -343,6 +358,7 @@ export default function BookList() {
           </div>
         </div>
       </main>
+      <Toast message={toastMsg} onClose={() => setToastMsg('')} />
       <Footer />
     </div>
   );

@@ -70,6 +70,7 @@ export function CartProvider({ children }) {
   }, [items, token]);
 
   const addItem = async (item) => {
+    if (!token) return; // Block guests
     const normalized = {
       ...item,
       id: item.id || item.productId,
@@ -78,56 +79,28 @@ export function CartProvider({ children }) {
       quantity: item.quantity ?? 1
     };
 
-    const useBackend = token && isObjectId(normalized.productId);
-
-    if (!useBackend) {
-      setItems((prev) => {
-        const existing = prev.find((entry) => entry.id === normalized.id);
-
-        if (!existing) {
-          return [...prev, normalized];
-        }
-
-        return prev.map((entry) =>
-          entry.id === normalized.id
-            ? { ...entry, quantity: (entry.quantity ?? 1) + normalized.quantity }
-            : entry
+    if (isObjectId(normalized.productId)) {
+      try {
+        const cart = await api.post(
+          '/api/cart/add',
+          {
+            productId: normalized.productId,
+            title: normalized.title,
+            price: normalized.price,
+            quantity: normalized.quantity
+          },
+          { token }
         );
-      });
-      return;
-    }
-
-    try {
-      const cart = await api.post(
-        '/api/cart/add',
-        {
-          productId: normalized.productId,
-          title: normalized.title,
-          price: normalized.price,
-          quantity: normalized.quantity
-        },
-        { token }
-      );
-      setItems(mapCartItems(cart.items));
-    } catch {
-      setItems((prev) => {
-        const existing = prev.find((entry) => entry.id === normalized.id);
-
-        if (!existing) {
-          return [...prev, normalized];
-        }
-
-        return prev.map((entry) =>
-          entry.id === normalized.id
-            ? { ...entry, quantity: (entry.quantity ?? 1) + normalized.quantity }
-            : entry
-        );
-      });
+        setItems(mapCartItems(cart.items));
+      } catch {
+        // fail silently
+      }
     }
   };
 
   const removeItem = async (id) => {
-    if (token && isObjectId(id)) {
+    if (!token) return; // Block guests
+    if (isObjectId(id)) {
       try {
         const cart = await api.delete('/api/cart/remove', { token, body: { productId: id } });
         setItems(mapCartItems(cart.items));
@@ -136,14 +109,13 @@ export function CartProvider({ children }) {
         return;
       }
     }
-
-    setItems((prev) => prev.filter((item) => item.id !== id));
   };
 
   const updateItemQuantity = async (id, quantity) => {
+    if (!token) return; // Block guests
     const nextQuantity = Math.max(1, quantity);
 
-    if (token && isObjectId(id)) {
+    if (isObjectId(id)) {
       try {
         const cart = await api.put('/api/cart/update', { productId: id, quantity: nextQuantity }, { token });
         setItems(mapCartItems(cart.items));
@@ -152,18 +124,11 @@ export function CartProvider({ children }) {
         return;
       }
     }
-
-    setItems((prev) =>
-      prev.map((item) =>
-        item.id === id
-          ? { ...item, quantity: nextQuantity }
-          : item
-      )
-    );
   };
 
   const clearCart = async () => {
-    if (token && items.some((item) => isObjectId(item.id))) {
+    if (!token) return; // Block guests
+    if (items.some((item) => isObjectId(item.id))) {
       try {
         await Promise.all(
           items

@@ -21,7 +21,8 @@ export default function BookCard({
   rating = 0, 
   tag,
   linkTo,
-  onAddToCart 
+  onAddToCart,
+  disableAdd = false
 }) {
   // Render star rating
   const renderStars = () => {
@@ -84,10 +85,12 @@ export default function BookCard({
             <span className="book-price">{price}</span>
           </div>
           <button 
-            className="book-btn" 
+            className={`book-btn${disableAdd ? ' book-btn-disabled' : ''}`}
             type="button"
-            onClick={onAddToCart}
+            onClick={disableAdd ? undefined : onAddToCart}
             aria-label={`Add ${title} to cart`}
+            disabled={disableAdd}
+            style={disableAdd ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
           >
             <span className="cart-icon">🛒</span>
             Add to Cart
