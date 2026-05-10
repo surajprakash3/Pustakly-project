@@ -126,6 +126,7 @@ function App() {
         <Route path="buy" element={<UserBuy />} />
         <Route path="sell" element={<UserSell />} />
         <Route path="seller" element={<SellerDashboard />} />
+        <Route path="orders" element={<MyOrders />} />
         <Route path="profile" element={<UserProfile />} />
       </Route>
     </Routes>

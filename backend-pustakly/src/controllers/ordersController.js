@@ -2,7 +2,8 @@ const getOrderById = async (req, res) => {
   try {
     const userId = req.user.id;
     const orderId = req.params.id;
-    const order = await Order.findOne({ _id: orderId, userId });
+    // Model field is 'user', not 'userId'
+    const order = await Order.findOne({ _id: orderId, user: userId });
     if (!order) return res.status(404).json({ message: 'Order not found' });
     res.json(order);
   } catch (err) {
@@ -56,7 +57,8 @@ exports.createOrder = async (req, res) => {
 const getMyOrders = async (req, res) => {
   try {
     const userId = req.user.id;
-    const orders = await Order.find({ userId }).sort({ createdAt: -1 });
+    // Model field is 'user', not 'userId'
+    const orders = await Order.find({ user: userId }).sort({ createdAt: -1 });
     res.json(orders);
   } catch (err) {
     res.status(500).json({ message: 'Failed to fetch orders', error: err.message });

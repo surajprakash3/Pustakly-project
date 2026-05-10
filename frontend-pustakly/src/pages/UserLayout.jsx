@@ -7,6 +7,7 @@ const tabs = [
   { label: 'Marketplace', to: '/user/buy' },
   { label: 'Sell', to: '/user/sell' },
   { label: 'Seller Dashboard', to: '/user/seller' },
+  { label: 'My Orders', to: '/user/orders' },
   { label: 'Profile', to: '/user/profile' }
 ];
 
