@@ -15,6 +15,9 @@ const adminUploadRoutes = require('./routes/adminUploadRoutes');
 const cartRoutes = require('./routes/cartRoutes');
 const adminReportRoutes = require('./routes/adminReportRoutes');
 const adminAnalyticsRoutes = require('./routes/adminAnalyticsRoutes');
+const reviewRoutes         = require('./routes/reviewRoutes');
+const paymentRoutes        = require('./routes/paymentRoutes');
+const shippingRoutes       = require('./routes/shippingRoutes');
 const errorHandler = require('./middleware/errorHandler');
 
 dotenv.config();
@@ -40,6 +43,9 @@ app.use('/api/admin/uploads', adminUploadRoutes);
 app.use('/api/admin/reports', adminReportRoutes);
 app.use('/api/admin/analytics', adminAnalyticsRoutes);
 app.use('/api/cart', cartRoutes);
+app.use('/api/reviews', reviewRoutes);
+app.use('/api/payment', paymentRoutes);
+app.use('/api/shipping', shippingRoutes);
 
 app.use(errorHandler);
 

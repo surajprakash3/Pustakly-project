@@ -3,8 +3,8 @@ const Order = require('../models/Order');
 const placeOrder = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { paymentMethod, paymentDetails, shippingInfo, items, subtotal, tax, total } = req.body;
-    if (!['card', 'upi', 'cod'].includes(paymentMethod)) {
+    const { paymentMethod, paymentDetails, shippingInfo, items, subtotal, tax, shippingCost, total, courierPartner } = req.body;
+    if (!['card', 'upi', 'cod', 'bank', 'razorpay', 'stripe', 'paypal', 'wallet'].includes(paymentMethod)) {
       return res.status(400).json({ message: 'Invalid payment method' });
     }
     if (!items || !Array.isArray(items) || items.length === 0) {
@@ -22,6 +22,8 @@ const placeOrder = async (req, res) => {
       subtotal,
       tax,
       total,
+      shippingCost: shippingCost || 0,
+      courierPartner: courierPartner || 'Self',
       status: 'Placed'
     });
     await order.save();

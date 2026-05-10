@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../lib/api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 
@@ -9,9 +10,11 @@ const currency = new Intl.NumberFormat('en-US', {
 
 export default function UserDashboard() {
   const { token, updateProfile } = useAuth();
+  const navigate = useNavigate();
   const [dashboard, setDashboard] = useState(null);
   const [orders, setOrders] = useState([]);
   const [uploads, setUploads] = useState([]);
+  const [library, setLibrary] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -31,10 +34,11 @@ export default function UserDashboard() {
       setError('');
 
       try {
-        const [dashboardRes, ordersRes, uploadsRes] = await Promise.all([
+        const [dashboardRes, ordersRes, uploadsRes, libraryRes] = await Promise.all([
           api.get('/api/user/dashboard', { token }),
           api.get('/api/user/orders', { token }),
-          api.get('/api/user/uploads', { token })
+          api.get('/api/user/uploads', { token }),
+          api.get('/api/user/library', { token })
         ]);
 
         if (!active) return;
@@ -42,6 +46,7 @@ export default function UserDashboard() {
         setDashboard(dashboardRes);
         setOrders(Array.isArray(ordersRes?.items) ? ordersRes.items : []);
         setUploads(Array.isArray(uploadsRes?.items) ? uploadsRes.items : []);
+        setLibrary(Array.isArray(libraryRes?.items) ? libraryRes.items : []);
         if (dashboardRes?.user) {
           updateProfile(dashboardRes.user);
         }
@@ -149,11 +154,65 @@ export default function UserDashboard() {
                       {upload.status}
                     </span>
                     <p className="mt-1 text-sm font-semibold">{currency.format(Number(upload.price || 0))}</p>
+                    {upload.digitalFileUrl && (
+                      <button 
+                        onClick={() => navigate(`/user/reader/${upload.id}`)}
+                        className="mt-2 text-[10px] font-bold text-[#b4512d] hover:underline flex items-center gap-1"
+                      >
+                        📖 Preview Reader
+                      </button>
+                    )}
                   </div>
                 </div>
               ))
             )}
           </div>
+        </article>
+      </section>
+
+      {/* Digital Library Section */}
+      <section>
+        <article className="user-portal-card rounded-2xl bg-white p-6 shadow-[0_12px_24px_rgba(0,0,0,0.08)]">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-semibold text-[#1d1b19]">📚 My Digital Library</h3>
+            <span className="bg-[#fdf4ef] text-[#b4512d] px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
+              {library.length} Books
+            </span>
+          </div>
+          
+          {library.length === 0 ? (
+            <div className="text-center py-12 bg-[#fcfaf8] rounded-2xl border-2 border-dashed border-[#e8ddd4]">
+              <p className="text-[#7a726b] mb-4">You haven't purchased any digital copies yet.</p>
+              <a href="/books" className="text-[#b4512d] font-bold hover:underline">Browse Catalog →</a>
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {library.map((book) => (
+                <div key={book.id} className="flex flex-col gap-4 p-4 rounded-2xl border border-[#efe5dc] hover:border-[#b4512d] transition-all bg-white hover:shadow-lg group">
+                  <div className="flex-1">
+                    <h4 className="font-bold text-[#1d1b19] line-clamp-1">{book.title}</h4>
+                    <p className="text-sm text-[#7a726b]">{book.creator}</p>
+                    <p className="text-[10px] text-[#a88874] mt-2 uppercase font-bold tracking-tighter">Purchased on {new Date(book.purchaseDate).toLocaleDateString()}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => navigate(`/user/reader/${book.id}`)}
+                      className="flex-1 bg-[#1d1b19] text-white py-2 rounded-xl text-xs font-bold hover:bg-[#3a2f2a] transition-colors"
+                    >
+                      Read Online
+                    </button>
+                    <a 
+                      href={book.fileUrl} 
+                      download 
+                      className="px-3 bg-[#fdf4ef] text-[#b4512d] py-2 rounded-xl text-xs font-bold hover:bg-[#f9e9de] transition-colors flex items-center justify-center"
+                    >
+                      ↓
+                    </a>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </article>
       </section>
     </div>

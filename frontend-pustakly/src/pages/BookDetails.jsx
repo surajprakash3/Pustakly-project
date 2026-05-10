@@ -4,10 +4,12 @@ import Navbar from '../components/Navbar.jsx';
 import Footer from '../components/Footer.jsx';
 import books from '../data/books.js';
 import { CartContext } from '../context/CartContext.jsx';
+import ReviewSection from '../components/ReviewSection.jsx';
 import './BookDetails.css';
 
 export default function BookDetails() {
   const [quantity, setQuantity] = useState(1);
+  const [format, setFormat] = useState('physical'); // 'physical' or 'digital'
   const { id } = useParams();
   const { addItem } = useContext(CartContext);
   const bookId = Number(id);
@@ -21,7 +23,11 @@ export default function BookDetails() {
         reviewsCount: baseBook.reviewsCount || 84,
         description:
           baseBook.description ||
-          'A beautifully crafted story filled with memorable characters, immersive settings, and a journey that lingers long after the final page.'
+          'A beautifully crafted story filled with memorable characters, immersive settings, and a journey that lingers long after the final page.',
+        pricePhysical: parseFloat(baseBook.price.replace('$', '')) || 20,
+        priceDigital: parseFloat(baseBook.price.replace('$', '')) * 0.6 || 12,
+        isPhysicalAvailable: true,
+        isDigitalAvailable: true
       }
     : null;
 
@@ -76,7 +82,8 @@ export default function BookDetails() {
   };
 
   const handleAddToCart = () => {
-    addItem({ ...book, quantity });
+    const finalPrice = format === 'physical' ? book.pricePhysical : book.priceDigital;
+    addItem({ ...book, price: `$${finalPrice.toFixed(2)}`, quantity, format });
   };
 
   if (!book) {
@@ -143,10 +150,33 @@ export default function BookDetails() {
 
             <p className="book-description">{book.description}</p>
 
+            <div className="format-selector">
+              <button 
+                type="button" 
+                className={`format-btn ${format === 'digital' ? 'active' : ''}`}
+                onClick={() => setFormat('digital')}
+              >
+                <span className="format-type">Digital Copy</span>
+                <span className="format-price">${book.priceDigital.toFixed(2)}</span>
+                <span className="format-status">Available</span>
+              </button>
+              <button 
+                type="button" 
+                className={`format-btn ${format === 'physical' ? 'active' : ''}`}
+                onClick={() => setFormat('physical')}
+              >
+                <span className="format-type">Physical Copy</span>
+                <span className="format-price">${book.pricePhysical.toFixed(2)}</span>
+                <span className="format-status">In Stock</span>
+              </button>
+            </div>
+
             <div className="purchase-bar">
               <div className="price-block">
-                <span className="price-label">Price</span>
-                <span className="price-value">{book.price}</span>
+                <span className="price-label">Subtotal</span>
+                <span className="price-value">
+                  ${(format === 'physical' ? book.pricePhysical : book.priceDigital).toFixed(2)}
+                </span>
               </div>
 
               <div className="quantity-selector">
@@ -185,29 +215,7 @@ export default function BookDetails() {
           </div>
         </section>
 
-        <section className="book-reviews">
-          <div className="reviews-header">
-            <h2>Reader Reviews</h2>
-            <button className="write-review" type="button">
-              Write a Review
-            </button>
-          </div>
-
-          <div className="reviews-grid">
-            {reviews.map((review) => (
-              <article key={review.id} className="review-card">
-                <div className="review-top">
-                  <div>
-                    <h3>{review.name}</h3>
-                    <span className="review-date">{review.date}</span>
-                  </div>
-                  <span className="review-stars">{renderStars(review.rating)}</span>
-                </div>
-                <p>{review.text}</p>
-              </article>
-            ))}
-          </div>
-        </section>
+        <ReviewSection bookId={bookId} />
       </main>
       <Footer />
     </div>

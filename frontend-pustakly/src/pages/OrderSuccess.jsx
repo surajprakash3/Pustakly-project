@@ -233,6 +233,19 @@ export default function OrderSuccess() {
           </div>
         </div>
 
+        {order.items?.some(i => i.format === 'digital') && !isCancelled && (
+          <div className="os-card" style={{ background: 'linear-gradient(135deg, #fdf4ef, #fff)', border: '2px solid #b4512d', marginBottom: '1.5rem' }}>
+            <div className="flex items-center gap-4">
+              <span style={{ fontSize: '2rem' }}>📚</span>
+              <div>
+                <h3 style={{ color: '#b4512d', fontWeight: 800, margin: 0 }}>Digital Access Ready!</h3>
+                <p style={{ margin: '0.2rem 0 0.8rem', fontSize: '0.9rem', color: '#7a726b' }}>Your softcopy books have been added to your digital library.</p>
+                <Link to="/user/dashboard" className="os-btn-primary" style={{ padding: '0.5rem 1.2rem', fontSize: '0.8rem' }}>Go to My Digital Library</Link>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="os-layout">
           {/* ── LEFT COLUMN ── */}
           <div className="os-left">
@@ -273,41 +286,60 @@ export default function OrderSuccess() {
                   })}
                 </div>
                 {!isCancelled && (
-                  <div className="os-delivery-banner">
-                    <svg viewBox="0 0 24 24" fill="none" width="18" height="18"><path d="M1 3h15v13H1zM16 8h4l3 3v5h-7V8z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><circle cx="5.5" cy="18.5" r="2.5" stroke="currentColor" strokeWidth="1.8"/><circle cx="18.5" cy="18.5" r="2.5" stroke="currentColor" strokeWidth="1.8"/></svg>
-                    <span>Estimated Delivery: <strong>{fmt(estDelivery)}</strong></span>
+                  <div className="os-delivery-banner" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <svg viewBox="0 0 24 24" fill="none" width="18" height="18"><path d="M1 3h15v13H1zM16 8h4l3 3v5h-7V8z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><circle cx="5.5" cy="18.5" r="2.5" stroke="currentColor" strokeWidth="1.8"/><circle cx="18.5" cy="18.5" r="2.5" stroke="currentColor" strokeWidth="1.8"/></svg>
+                      <span>Estimated Delivery: <strong>{order.estimatedDeliveryDate ? fmt(order.estimatedDeliveryDate) : fmt(estDelivery)}</strong></span>
+                    </div>
+                    {order.courierPartner && order.courierPartner !== 'Self' && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.2rem', fontSize: '0.9rem', color: '#1d1b19' }}>
+                        <span style={{ fontWeight: 600 }}>Delivery Partner:</span> {order.courierPartner}
+                        {order.trackingId && (
+                          <>
+                            <span style={{ color: '#a88874', margin: '0 0.3rem' }}>|</span>
+                            <span style={{ fontWeight: 600 }}>Tracking ID:</span> 
+                            <a href={`https://track.pustakly.com/${order.trackingId}`} target="_blank" rel="noreferrer" style={{ color: '#b4512d', textDecoration: 'none', fontWeight: 600 }}>
+                              {order.trackingId}
+                            </a>
+                          </>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
             )}
 
             {/* Delivery Agent (Out for Delivery) */}
-            {isOutForDelivery && (
+            {(isOutForDelivery || order.status === 'Delivered') && order.deliveryAgent && order.deliveryAgent.name && (
               <div className="os-card os-agent-card">
                 <div className="os-card-title">
                   <svg viewBox="0 0 24 24" fill="none" width="20" height="20"><circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="2"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
                   Delivery Partner
                 </div>
                 <div className="os-agent-row">
-                  <div className="os-agent-avatar">R</div>
+                  <div className="os-agent-avatar">{order.deliveryAgent.name[0].toUpperCase()}</div>
                   <div>
-                    <div className="os-agent-name">Ravi Kumar</div>
-                    <div className="os-agent-sub">BlueDart Express · Vehicle: MH 12 AB 3456</div>
+                    <div className="os-agent-name">{order.deliveryAgent.name}</div>
+                    <div className="os-agent-sub">{order.courierPartner !== 'Self' ? order.courierPartner : 'Pustakly Logistics'} · Vehicle: {order.deliveryAgent.vehicle}</div>
                   </div>
                   <div className="os-agent-actions">
-                    <a href="tel:+919876543210" className="os-icon-btn call">
+                    <a href={`tel:${order.deliveryAgent.phone}`} className="os-icon-btn call">
                       <svg viewBox="0 0 24 24" fill="none" width="18" height="18"><path d="M6.6 10.8a15.1 15.1 0 006.6 6.6l2.2-2.2a1 1 0 011-.25 11.4 11.4 0 003.6.6 1 1 0 011 1V21a1 1 0 01-1 1A17 17 0 013 5a1 1 0 011-1h3.5a1 1 0 011 1 11.4 11.4 0 00.6 3.6 1 1 0 01-.25 1L6.6 10.8z" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
                       Call
                     </a>
-                    <a href="sms:+919876543210" className="os-icon-btn sms">
+                    <a href={`sms:${order.deliveryAgent.phone}`} className="os-icon-btn sms">
                       <svg viewBox="0 0 24 24" fill="none" width="18" height="18"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                       SMS
                     </a>
                   </div>
                 </div>
                 <div className="os-track-live">
-                  <span className="os-live-dot" />
-                  Agent is 3.2 km away · Arriving in ~15 mins
+                  <span className="os-live-dot" style={order.status === 'Delivered' ? { background: '#16a34a', boxShadow: 'none' } : {}} />
+                  {order.status === 'Delivered' 
+                    ? `Delivered by ${order.deliveryAgent.name}` 
+                    : `Agent is ${order.deliveryAgent.liveDistance} · Arriving in ${order.deliveryAgent.estimatedArrival}`
+                  }
                 </div>
               </div>
             )}

@@ -19,6 +19,20 @@ export default function AdminBooks() {
   const [selected, setSelected] = useState(() => new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [toast, setToast] = useState('');
+
+  const showToast = (msg, isError = false) => {
+    setToast(isError ? `❌ ${msg}` : `✅ ${msg}`);
+    setTimeout(() => setToast(''), 3500);
+  };
+
+  const exportCSV = () => {
+    const rows = [['Title','Type','Category','Seller','Price','Approval','Sales']];
+    uploads.forEach(item => rows.push([item.title, item.type, item.category, item.seller?.name || '', item.price || 0, item.approvalStatus || 'Pending', item.salesCount || 0]));
+    const blob = new Blob([rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n')], { type: 'text/csv' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = `pustakly_books_${Date.now()}.csv`; a.click();
+  };
 
   const loadUploads = useCallback(async () => {
     if (!token) return;
@@ -69,18 +83,21 @@ export default function AdminBooks() {
       const endpoint = status === 'Approved' ? 'approve' : 'reject';
       const updated = await api.patch(`/api/admin/uploads/${id}/${endpoint}`, {}, { token });
       setUploads((prev) => prev.map((item) => (item.id === id ? updated : item)));
+      showToast(`Book ${status.toLowerCase()} successfully`);
     } catch (requestError) {
-      setError(requestError.message || 'Failed to update approval');
+      showToast(requestError.message || 'Failed to update approval', true);
       loadUploads();
     }
   };
 
-  const deleteUpload = async (id) => {
+  const deleteUpload = async (id, title) => {
+    if (!window.confirm(`Delete "${title}"? This cannot be undone.`)) return;
     setUploads((prev) => prev.filter((item) => item.id !== id));
     try {
       await api.delete(`/api/admin/uploads/${id}`, { token });
+      showToast(`"${title}" deleted`);
     } catch (requestError) {
-      setError(requestError.message || 'Failed to delete upload');
+      showToast(requestError.message || 'Failed to delete upload', true);
       loadUploads();
     }
   };
@@ -103,8 +120,17 @@ export default function AdminBooks() {
   };
 
   return (
-    <div className="admin-shell admin-books-page min-h-screen bg-[#f6f3ee] text-[#1d1b19] lg:grid lg:grid-cols-[auto_1fr]">
+    <div className="admin-shell admin-books-page min-h-screen bg-[#f6f3ee] text-[#1d1b19] flex flex-col lg:flex-row lg:items-start">
       <AdminSidebar />
+
+      {toast && (
+        <div style={{
+          position: 'fixed', bottom: '1.5rem', right: '1.5rem', zIndex: 9999,
+          background: toast.startsWith('❌') ? '#b91c1c' : '#1d1b19',
+          color: 'white', padding: '0.75rem 1.2rem', borderRadius: '12px',
+          fontSize: '0.88rem', fontWeight: 600, boxShadow: '0 8px 30px rgba(0,0,0,0.25)'
+        }}>{toast}</div>
+      )}
 
       <div className="admin-content px-6 py-10">
         <div className="mx-auto flex max-w-6xl flex-col gap-8">
@@ -115,27 +141,10 @@ export default function AdminBooks() {
               <p className="text-sm text-[#6f6861]">{uploads.length} total listings</p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
-              <button
-                className="rounded-full border border-[#d9cfc6] px-4 py-2 text-sm font-semibold"
-                type="button"
-                onClick={loadUploads}
-              >
-                Refresh
-              </button>
-              <button
-                className="rounded-full bg-[#1d1b19] px-5 py-2 text-sm font-semibold text-white"
-                type="button"
-                onClick={() => bulkUpdate('Approved')}
-              >
-                Bulk Approve
-              </button>
-              <button
-                className="rounded-full border border-[#fef3c7] px-5 py-2 text-sm font-semibold text-[#b45309]"
-                type="button"
-                onClick={() => bulkUpdate('Rejected')}
-              >
-                Bulk Reject
-              </button>
+              <button className="rounded-full border border-[#d9cfc6] px-4 py-2 text-sm font-semibold" type="button" onClick={loadUploads}>🔄 Refresh</button>
+              <button className="rounded-full bg-[#1d1b19] px-5 py-2 text-sm font-semibold text-white" type="button" onClick={() => bulkUpdate('Approved')}>✅ Bulk Approve ({selected.size})</button>
+              <button className="rounded-full border border-[#fef3c7] px-5 py-2 text-sm font-semibold text-[#b45309]" type="button" onClick={() => bulkUpdate('Rejected')}>❌ Bulk Reject</button>
+              <button className="rounded-full border border-[#d9cfc6] px-4 py-2 text-sm font-semibold" type="button" onClick={exportCSV}>⬇ Export CSV</button>
             </div>
           </header>
 
@@ -262,7 +271,7 @@ export default function AdminBooks() {
                           <button
                             className="rounded-full border border-[#f4b4ad] px-3 py-1 text-xs font-semibold text-[#b91c1c]"
                             type="button"
-                            onClick={() => deleteUpload(item.id)}
+                            onClick={() => deleteUpload(item.id, item.title)}
                           >
                             Delete
                           </button>

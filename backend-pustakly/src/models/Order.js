@@ -7,7 +7,8 @@ const orderSchema = new mongoose.Schema({
       productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
       title: String,
       price: Number,
-      quantity: Number
+      quantity: Number,
+      format: { type: String, enum: ['physical', 'digital'], default: 'physical' }
     }
   ],
   subtotal: { type: Number, required: true },
@@ -22,14 +23,35 @@ const orderSchema = new mongoose.Schema({
     postal: String,
     phone: String
   },
-  paymentMethod: { type: String, enum: ['card', 'upi', 'cod'], required: true },
+  paymentMethod: { type: String, enum: ['card', 'upi', 'cod', 'bank', 'razorpay', 'stripe', 'paypal', 'wallet'], required: true },
   paymentDetails: {
     cardNumber: String,
     expiry: String,
     name: String,
     upi: String
   },
-  status: { type: String, enum: ['Placed', 'Processing', 'Shipped', 'Out for Delivery', 'Delivered', 'Cancelled', 'Pending', 'Paid', 'COD'], default: 'Placed' }
+  status: { type: String, enum: ['Placed', 'Processing', 'Shipped', 'Out for Delivery', 'Delivered', 'Cancelled', 'Pending', 'Paid', 'COD'], default: 'Placed' },
+  
+  // Logistics & Tracking
+  courierPartner: { type: String, default: 'Self' },
+  trackingId: { type: String, default: '' },
+  shippingLabelUrl: { type: String, default: '' },
+  estimatedDeliveryDate: { type: Date },
+  trackingHistory: [{
+    status: String,
+    location: String,
+    timestamp: { type: Date, default: Date.now },
+    message: String
+  }],
+  
+  // Delivery Agent Details
+  deliveryAgent: {
+    name: String,
+    phone: String,
+    vehicle: String,
+    liveDistance: String,
+    estimatedArrival: String
+  }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Order', orderSchema);

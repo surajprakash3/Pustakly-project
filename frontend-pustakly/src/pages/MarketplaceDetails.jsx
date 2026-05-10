@@ -4,6 +4,7 @@ import Navbar from '../components/Navbar.jsx';
 import Footer from '../components/Footer.jsx';
 import { useMarketplace } from '../context/MarketplaceContext.jsx';
 import { CartContext } from '../context/CartContext.jsx';
+import ReviewSection from '../components/ReviewSection.jsx';
 
 const formatPrice = (value) => `$${Number(value || 0).toFixed(2)}`;
 
@@ -118,6 +119,7 @@ export default function MarketplaceDetails() {
             </div>
           </aside>
         </div>
+        <ReviewSection productId={listing.id} />
       </main>
       <Footer />
     </div>

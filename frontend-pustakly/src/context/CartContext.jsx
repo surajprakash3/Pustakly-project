@@ -95,7 +95,8 @@ export function CartProvider({ children }) {
           productId: normalized.productId,
           title: normalized.title,
           price: normalized.price,
-          quantity: normalized.quantity
+          quantity: normalized.quantity,
+          format: normalized.format || 'physical'
         },
         { token }
       );

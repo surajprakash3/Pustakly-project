@@ -4,7 +4,8 @@ const cartItemSchema = new mongoose.Schema({
   productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
   title: { type: String, required: true },
   price: { type: Number, required: true },
-  quantity: { type: Number, default: 1, min: 1 }
+  quantity: { type: Number, default: 1, min: 1 },
+  format: { type: String, enum: ['physical', 'digital'], default: 'physical' }
 }, { _id: false });
 
 const cartSchema = new mongoose.Schema({

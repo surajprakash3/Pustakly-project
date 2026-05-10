@@ -19,7 +19,7 @@ const getCart = async (req, res) => {
 const addToCart = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { productId, title, price, quantity = 1 } = req.body;
+    const { productId, title, price, quantity = 1, format = 'physical' } = req.body;
 
     if (!mongoose.Types.ObjectId.isValid(productId)) {
       return res.status(400).json({ message: 'Invalid productId' });
@@ -34,14 +34,14 @@ const addToCart = async (req, res) => {
     if (!cart) {
       cart = new Cart({
         userId,
-        items: [{ productId: itemId, title, price, quantity }]
+        items: [{ productId: itemId, title, price, quantity, format }]
       });
     } else {
-      const existing = cart.items.find(item => item.productId.equals(itemId));
+      const existing = cart.items.find(item => item.productId.equals(itemId) && item.format === format);
       if (existing) {
         existing.quantity += quantity;
       } else {
-        cart.items.push({ productId: itemId, title, price, quantity });
+        cart.items.push({ productId: itemId, title, price, quantity, format });
       }
     }
     cart.recalculateSubtotal();

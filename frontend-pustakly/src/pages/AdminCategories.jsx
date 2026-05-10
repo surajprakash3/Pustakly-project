@@ -91,7 +91,7 @@ export default function AdminCategories() {
   };
 
   return (
-    <div className="admin-shell min-h-screen bg-[#f6f3ee] text-[#1d1b19] lg:grid lg:grid-cols-[auto_1fr]">
+    <div className="admin-shell min-h-screen bg-[#f6f3ee] text-[#1d1b19] flex flex-col lg:flex-row lg:items-start">
       <AdminSidebar />
 
       <div className="admin-content px-6 py-10">

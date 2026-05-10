@@ -212,10 +212,24 @@
   flex-direction: column;
   gap: 0.2rem;
 }
+.pay-tile-label-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
 .pay-tile-label {
   font-weight: 700;
   color: var(--dark);
   font-size: 0.97rem;
+}
+.pay-tile-badge {
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: #16a34a;
+  background: #dcfce7;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  letter-spacing: 0.3px;
 }
 .pay-tile-sub {
   font-size: 0.8rem;
@@ -250,6 +264,25 @@
   padding-top: 1.4rem;
   border-top: 1px dashed var(--border);
 }
+
+/* Gateway Banners */
+.gateway-banner {
+  padding: 1.2rem;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  border-left: 4px solid;
+}
+.gateway-banner strong {
+  display: block;
+  margin-bottom: 0.3rem;
+  font-size: 0.95rem;
+}
+.gateway-banner p { margin: 0; opacity: 0.85; }
+.gateway-banner.razorpay { background: #eff6ff; border-color: #3b82f6; color: #1e3a8a; }
+.gateway-banner.stripe { background: #f5f3ff; border-color: #8b5cf6; color: #4c1d95; }
+.gateway-banner.paypal { background: #f0fdfa; border-color: #14b8a6; color: #134e4a; }
+.gateway-banner.wallet { background: #fffbeb; border-color: #f59e0b; color: #78350f; }
 
 /* Card brands */
 .card-brands {
@@ -417,6 +450,28 @@
 }
 
 /* Empty cart */
+.summary-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+.currency-selector {
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #5c5449;
+  background: #fdf9f6;
+  border: 1.5px solid #e0d8d0;
+  border-radius: 8px;
+  padding: 0.3rem 0.6rem;
+  cursor: pointer;
+}
+.currency-selector:focus {
+  outline: none;
+  border-color: #b4512d;
+}
+
 .empty-cart-msg {
   padding: 2rem 0;
   text-align: center;

@@ -1,0 +1,108 @@
+.reader-container {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #1a1a1a;
+  color: white;
+}
+
+.reader-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 2rem;
+  background: #262626;
+  border-bottom: 1px solid #333;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  z-index: 10;
+}
+
+.book-meta {
+  text-align: center;
+}
+
+.book-meta .title {
+  display: block;
+  font-weight: 800;
+  font-size: 1.1rem;
+}
+
+.book-meta .author {
+  font-size: 0.85rem;
+  color: #a88874;
+}
+
+.back-btn {
+  background: transparent;
+  border: 1px solid #444;
+  color: #ccc;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.back-btn:hover {
+  background: #333;
+  color: white;
+  border-color: #666;
+}
+
+.reader-viewport {
+  flex: 1;
+  background: #525659;
+  display: flex;
+  justify-content: center;
+}
+
+.pdf-viewer {
+  width: 100%;
+  max-width: 1000px;
+  height: 100%;
+  border: none;
+}
+
+.reader-msg {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #fdfaf8;
+  color: #1d1b19;
+}
+
+.reader-msg.error h3 {
+  color: #b4512d;
+  font-size: 2rem;
+  margin-bottom: 1rem;
+}
+
+.reader-msg button {
+  margin-top: 1.5rem;
+  background: #b4512d;
+  color: white;
+  border: none;
+  padding: 0.8rem 2rem;
+  border-radius: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.no-file {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ccc;
+  font-size: 1.2rem;
+}
+
+.controls button {
+  background: #b4512d;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+}

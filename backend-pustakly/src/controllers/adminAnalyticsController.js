@@ -71,7 +71,7 @@ const getSummary = async (req, res) => {
   const repeatCustomerAgg = await db
     .collection('orders')
     .aggregate([
-      { $group: { _id: '$buyer', orders: { $sum: 1 } } },
+      { $group: { _id: { $ifNull: ['$user', '$buyer'] }, orders: { $sum: 1 } } },
       {
         $group: {
           _id: null,

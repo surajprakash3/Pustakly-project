@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import api from '../lib/api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import './MyOrders.css';
@@ -38,6 +38,7 @@ function addDays(date, n) {
 
 export default function MyOrders() {
   const { token } = useAuth();
+  const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -57,6 +58,64 @@ export default function MyOrders() {
       }
     })();
   }, [token]);
+
+  const handleDownloadInvoice = async (paymentId, invoiceNumber) => {
+    try {
+      const response = await fetch(`${api.defaults.baseURL}/api/payment/invoice/${paymentId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!response.ok) throw new Error('Failed to download invoice');
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${invoiceNumber || 'invoice'}.html`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      a.remove();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleRefund = async (paymentId) => {
+    if (!window.confirm('Are you sure you want to request a refund for this order?')) return;
+    try {
+      await api.post('/api/payment/refund', { paymentId, reason: 'Customer requested via portal' }, { token });
+      alert('Refund initiated successfully!');
+      // Refresh
+      const data = await api.get('/api/orders/my-orders', { token });
+      setOrders(Array.isArray(data) ? data : []);
+    } catch (err) {
+      alert(err.message || 'Failed to initiate refund');
+    }
+  };
+
+  const handleCancelOrder = async (orderId) => {
+    if (!window.confirm('Are you sure you want to cancel this order? This action cannot be undone.')) return;
+    try {
+      await api.patch(`/api/orders/${orderId}/cancel`, {}, { token });
+      alert('Order cancelled successfully.');
+      // Refresh
+      const data = await api.get('/api/orders/my-orders', { token });
+      setOrders(Array.isArray(data) ? data : []);
+    } catch (err) {
+      alert(err.message || 'Failed to cancel order.');
+    }
+  };
+
+  const handleExchange = async (orderId) => {
+    const reason = window.prompt('Please enter a brief reason for requesting an exchange or return:');
+    if (!reason) return;
+    try {
+      const res = await api.post(`/api/orders/${orderId}/exchange`, { reason }, { token });
+      alert(res.message || 'Exchange requested successfully.');
+    } catch (err) {
+      alert(err.message || 'Failed to request exchange.');
+    }
+  };
 
   if (loading) return (
     <div className="mo-center">
@@ -151,7 +210,20 @@ export default function MyOrders() {
                             <div className="mo-item-avatar">{(item.title || 'B')[0].toUpperCase()}</div>
                             <div className="mo-item-info">
                               <div className="mo-item-title">{item.title}</div>
-                              <div className="mo-item-qty">Qty: {item.quantity}</div>
+                              <div className="mo-item-qty">Qty: {item.quantity} {item.format === 'digital' && <span className="digital-badge">Digital</span>}</div>
+                              {item.format === 'digital' && item.digitalFileUrl && (
+                                <div className="mo-item-action">
+                                  <button 
+                                    className="mo-read-btn"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      navigate(`/user/reader/${item.productId?._id || item.productId}`);
+                                    }}
+                                  >
+                                    📖 Read Online
+                                  </button>
+                                </div>
+                              )}
                             </div>
                             <div className="mo-item-price">₹{(item.price * item.quantity).toFixed(2)}</div>
                           </div>
@@ -212,15 +284,30 @@ export default function MyOrders() {
                         <svg viewBox="0 0 24 24" fill="none" width="15" height="15"><path d="M12 22s-8-4.5-8-11.8A8 8 0 0112 2a8 8 0 018 8.2C20 17.5 12 22 12 22z" stroke="currentColor" strokeWidth="2"/><circle cx="12" cy="10" r="3" stroke="currentColor" strokeWidth="2"/></svg>
                         View & Track Order
                       </Link>
+                      {order.payment && order.payment.invoiceNumber && (
+                        <button className="mo-action-btn secondary" onClick={() => handleDownloadInvoice(order.payment._id, order.payment.invoiceNumber)}>
+                          📄 Download Invoice
+                        </button>
+                      )}
                       {['Placed', 'Processing'].includes(order.status) && (
-                        <button className="mo-action-btn danger" onClick={() => {}}>
+                        <button className="mo-action-btn danger" onClick={() => handleCancelOrder(order._id)}>
                           ❌ Cancel Order
                         </button>
                       )}
                       {order.status === 'Delivered' && (
-                        <button className="mo-action-btn secondary" onClick={() => {}}>
+                        <button className="mo-action-btn secondary" onClick={() => handleExchange(order._id)}>
                           🔄 Exchange / Return
                         </button>
+                      )}
+                      {order.status === 'Delivered' && order.payment && order.payment.status === 'Paid' && (
+                        <button className="mo-action-btn danger outline" onClick={() => handleRefund(order.payment._id)}>
+                          🔄 Request Refund
+                        </button>
+                      )}
+                      {order.payment && ['Refund Initiated', 'Refunded'].includes(order.payment.status) && (
+                        <span className="mo-action-btn disabled">
+                          💵 {order.payment.status}
+                        </span>
                       )}
                     </div>
                   </div>

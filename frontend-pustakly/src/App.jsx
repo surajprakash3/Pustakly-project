@@ -26,6 +26,7 @@ import UserBuy from './pages/UserBuy.jsx';
 import UserSell from './pages/UserSell.jsx';
 import SellerDashboard from './pages/SellerDashboard.jsx';
 import UserProfile from './pages/UserProfile.jsx';
+import Reader from './pages/Reader.jsx';
 
 function App() {
   return (
@@ -128,6 +129,7 @@ function App() {
         <Route path="seller" element={<SellerDashboard />} />
         <Route path="orders" element={<MyOrders />} />
         <Route path="profile" element={<UserProfile />} />
+        <Route path="reader/:id" element={<Reader />} />
       </Route>
     </Routes>
   );

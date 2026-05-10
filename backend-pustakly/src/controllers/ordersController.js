@@ -57,9 +57,29 @@ exports.createOrder = async (req, res) => {
 const getMyOrders = async (req, res) => {
   try {
     const userId = req.user.id;
-    // Model field is 'user', not 'userId'
-    const orders = await Order.find({ user: userId }).sort({ createdAt: -1 });
-    res.json(orders);
+    const orders = await Order.find({ user: userId })
+      .populate('items.productId', 'digitalFileUrl')
+      .lean()
+      .sort({ createdAt: -1 });
+    
+    // Attach payment info for invoice and refund logic
+    const Payment = require('../models/Payment');
+    const orderIds = orders.map(o => o._id);
+    const payments = await Payment.find({ order: { $in: orderIds } }).lean();
+
+    const ordersWithPayments = orders.map(o => {
+      o.payment = payments.find(p => String(p.order) === String(o._id));
+      // Map digitalFileUrl to item if available
+      o.items = o.items.map(item => {
+        if (item.format === 'digital' && item.productId) {
+          item.digitalFileUrl = item.productId.digitalFileUrl;
+        }
+        return item;
+      });
+      return o;
+    });
+
+    res.json(ordersWithPayments);
   } catch (err) {
     res.status(500).json({ message: 'Failed to fetch orders', error: err.message });
   }

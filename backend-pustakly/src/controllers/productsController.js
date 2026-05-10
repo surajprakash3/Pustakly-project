@@ -86,6 +86,11 @@ const createProduct = async (req, res) => {
       approvalStatus: req.body.approvalStatus || 'Approved',
       rating: Number(req.body.rating || 0),
       totalSales: Number(req.body.totalSales || 0),
+      pricePhysical: Number(req.body.pricePhysical || req.body.price || 0),
+      priceDigital: Number(req.body.priceDigital || 0),
+      isPhysicalAvailable: req.body.isPhysicalAvailable === 'true' || req.body.isPhysicalAvailable === true,
+      isDigitalAvailable: req.body.isDigitalAvailable === 'true' || req.body.isDigitalAvailable === true,
+      digitalFileUrl: req.file ? req.file.path : (req.body.digitalFileUrl || ''),
       seller: userId,
       createdAt: new Date(),
       updatedAt: new Date()
@@ -226,7 +231,13 @@ const updateProduct = async (req, res) => {
     if (!canModify) {
       return res.status(403).json({ message: 'Not allowed to update this product' });
     }
-    await Product.findByIdAndUpdate(productId, { ...req.body, updatedAt: new Date() });
+
+    const updateData = { ...req.body, updatedAt: new Date() };
+    if (req.file) {
+      updateData.digitalFileUrl = req.file.path;
+    }
+
+    await Product.findByIdAndUpdate(productId, updateData);
     const product = await Product.findById(productId);
     return res.json(product);
   } catch (err) {

@@ -35,7 +35,8 @@ const toUploadDto = (product) => ({
   title: product.title || product.name || 'Untitled Upload',
   status: product.approvalStatus || product.status || 'Pending',
   price: parseAmount(product.price ?? product.sellingPrice ?? product.amount),
-  createdAt: product.createdAt || null
+  createdAt: product.createdAt || null,
+  digitalFileUrl: product.digitalFileUrl || ''
 });
 
 
@@ -109,8 +110,30 @@ const getUserUploads = async (req, res) => {
   }
 };
 
+const getDigitalLibrary = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const user = await User.findById(userId).populate('digitalLibrary.bookId');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const library = user.digitalLibrary.map(item => ({
+      id: item.bookId?._id,
+      title: item.bookId?.title || 'Unknown Title',
+      creator: item.bookId?.creator || 'Unknown Author',
+      purchaseDate: item.purchaseDate,
+      fileUrl: item.bookId?.digitalFileUrl,
+      format: item.format
+    }));
+
+    return res.json({ items: library });
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
 module.exports = {
   getUserDashboard,
   getUserOrders,
-  getUserUploads
+  getUserUploads,
+  getDigitalLibrary
 };
