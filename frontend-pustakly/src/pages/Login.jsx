@@ -19,6 +19,7 @@ export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
   const { login } = useAuth();
+  const isAdminRoute = location.pathname === '/z' || location.pathname === '/9-';
 
   useEffect(() => {
     const savedEmail = localStorage.getItem('apnabook_remember_email');
@@ -195,8 +196,12 @@ export default function Login() {
         <section className="auth-card">
           <div className="auth-header">
             <img className="auth-logo" src={logo} alt="Pustakly logo" />
-            <h1>Welcome back</h1>
-            <p>Log in to track orders and keep your library synced.</p>
+            <h1>{isAdminRoute ? 'Admin portal' : 'Welcome back'}</h1>
+            <p>
+              {isAdminRoute
+                ? 'Sign in to manage books, orders, users, and reports.'
+                : 'Log in to track orders and keep your library synced.'}
+            </p>
           </div>
 
           <form className="auth-form" onSubmit={handleSubmit} noValidate>

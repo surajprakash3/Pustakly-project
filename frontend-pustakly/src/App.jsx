@@ -49,6 +49,22 @@ function App() {
         }
       />
       <Route
+        path="/z"
+        element={
+          <PublicOnly>
+            <Login />
+          </PublicOnly>
+        }
+      />
+      <Route
+        path="/9-"
+        element={
+          <PublicOnly>
+            <Login />
+          </PublicOnly>
+        }
+      />
+      <Route
         path="/signup"
         element={
           <PublicOnly>
